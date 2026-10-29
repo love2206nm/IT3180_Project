@@ -4,8 +4,14 @@
 
 # 1. Dependencies (TUYỆT ĐỐI KHÔNG COMMIT LÊN GIT)
 node_modules/
+node_modules
+**/node_modules/
+**/node_modules/**
 .pnp
 .pnp.js
+.pnp.*
+.yarn/
+.npm/
 
 # 2. Environment Variables & Secrets (Bảo mật tài khoản & CSDL)
 .env
@@ -20,6 +26,8 @@ node_modules/
 out/
 build/
 dist/
+*.tsbuildinfo
+.turbo/
 
 # 4. Logs & Debug
 logs/
@@ -39,10 +47,13 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
-# 6. Prisma SQLite temporary files (nếu có)
+# 6. Prisma SQLite temporary files & generated assets
 *.db
 *.db-journal
+*.sqlite
+*.sqlite-journal
 
-# 7. Testing Coverage
+# 7. Testing Coverage & Cache
 coverage/
 .nyc_output/
+.cache/

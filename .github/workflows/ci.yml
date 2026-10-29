@@ -16,8 +16,7 @@ on:
       - main
 
 env:
-  # Cung cấp biến môi trường giả lập để Prisma CLI có thể validate và generate types mà không cần kết nối mạng
-  DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/delivery_hub_ci?schema=public"
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/delivery_hub?schema=public"
   NODE_ENV: "test"
 
 jobs:
@@ -25,6 +24,23 @@ jobs:
     name: "Architectural Guardrails & Automated Testing"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    # Khởi tạo tự động Service Container PostgreSQL 16 cho môi trường CI của GitHub Actions
+    # Giúp chạy 100% các bài Integration Test trên PostgreSQL thực mà không cần cài đặt ngoài
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: delivery_hub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       # Bước 1: Kéo mã nguồn từ GitHub về máy ảo Ubuntu
@@ -55,7 +71,13 @@ jobs:
       - name: "6. Generate Prisma Client types"
         run: npm run db:generate
 
-      # Bước 7: Chạy toàn bộ các bộ Unit Test (Tầng Domain và Tầng Infrastructure)
+      # Bước 6.1: Đẩy Schema và nạp dữ liệu mẫu vào PostgreSQL Service Container
+      - name: "6.1. Push Schema and Seed Database in CI"
+        run: |
+          npm run db:push
+          npm run db:seed
+
+      # Bước 7: Chạy toàn bộ các bộ Unit & Integration Test (Domain & Infrastructure)
       - name: "7. Execute all test suites (Domain & Infrastructure)"
         run: npm test
 
@@ -67,6 +89,7 @@ jobs:
           echo "  ✔ PULL REQUEST QUALITY GATE PASSED 100%!                "
           echo "  - Clean Architecture Guardrails: PASS                   "
           echo "  - Prisma Schema & 12 Indexes: PASS                      "
-          echo "  - Domain & Infrastructure Unit Tests: PASS (16/16)      "
+          echo "  - PostgreSQL Service Container: READY & SEEDED          "
+          echo "  - Domain & Infrastructure Unit/Integration Tests: PASS  "
           echo "  - Ready to merge into 'main' branch!                    "
           echo "=========================================================="

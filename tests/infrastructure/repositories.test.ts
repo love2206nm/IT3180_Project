@@ -2,6 +2,7 @@
  * @file repositories.test.ts
  * @description Integration Tests kiểm tra hoạt động thực tế của 6 Prisma Repositories
  * kết nối trực tiếp với PostgreSQL đã được nạp dữ liệu mẫu (Seeded Database).
+ * Tự động graceful skip nếu không có database thật ở môi trường local.
  */
 
 import { test, describe, before, after } from 'node:test';
@@ -22,7 +23,6 @@ import {
   Order,
   OrderStatusLog,
   CODSettlement,
-  CODSettlementDetail,
 } from '../../src/domain';
 import {
   PrismaOrderRepository,
@@ -42,11 +42,22 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
   const logRepo = new PrismaOrderStatusLogRepository(prisma);
   const codRepo = new PrismaCODSettlementRepository(prisma);
 
-  let hubHanoiId: string;
-  let shipper01Id: string;
-  let managerId: string;
+  let isDbAvailable = false;
+  let hubHanoiId: string | number;
+  let shipper01Id: string | number;
+  let managerId: string | number;
 
   before(async () => {
+    try {
+      await prisma.$connect();
+      await prisma.$queryRaw`SELECT 1`;
+      isDbAvailable = true;
+    } catch {
+      console.warn('\n⚠️ [TEST RUNNER] PostgreSQL không khả dụng tại localhost:5432. Bỏ qua Live DB Integration Tests.\n');
+      isDbAvailable = false;
+      return;
+    }
+
     // Lấy thông tin trạm và nhân sự mẫu đã seed
     const hub = await hubRepo.findByCode('HUB-HAN-01');
     assert.notEqual(hub, null, 'Hub Hanoi must exist in seeded DB');
@@ -62,11 +73,15 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
   });
 
   after(async () => {
-    await disconnectPrisma();
+    if (isDbAvailable) {
+      await disconnectPrisma();
+    }
   });
 
   describe('PrismaHubRepository', () => {
-    test('findByCode & findById: returns rich Hub domain entity', async () => {
+    test('findByCode & findById: returns rich Hub domain entity', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const hub = await hubRepo.findByCode('HUB-HAN-01');
       assert.notEqual(hub, null);
       assert.equal(hub!.getName(), 'Trạm Giao Nhận Cầu Giấy - Hà Nội');
@@ -78,14 +93,18 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.equal(hubById!.getCode(), 'HUB-HAN-01');
     });
 
-    test('findAll: filters by status correctly', async () => {
+    test('findAll: filters by status correctly', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const activeHubs = await hubRepo.findAll(HUB_STATUS.ACTIVE);
       assert.equal(activeHubs.length >= 2, true);
     });
   });
 
   describe('PrismaUserRepository', () => {
-    test('findByUsername & findByEmail: authenticates user properly', async () => {
+    test('findByUsername & findByEmail: authenticates user properly', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const admin = await userRepo.findByUsername('admin');
       assert.notEqual(admin, null);
       assert.equal(admin!.getEmail(), 'admin@delivery.vn');
@@ -96,13 +115,17 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.equal(userByEmail!.isHubManager(), true);
     });
 
-    test('findActiveShippersByHub: retrieves available shippers at hub (UC16)', async () => {
+    test('findActiveShippersByHub: retrieves available shippers at hub (UC16)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const shippers = await userRepo.findActiveShippersByHub(hubHanoiId);
       assert.equal(shippers.length >= 2, true);
       assert.equal(shippers.some((s) => s.getUsername() === 'shipper01'), true);
     });
 
-    test('search: supports pagination and multi-field keyword filtering (UC04)', async () => {
+    test('search: supports pagination and multi-field keyword filtering (UC04)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const result = await userRepo.search({
         hubId: hubHanoiId,
         role: USER_ROLE.SHIPPER,
@@ -116,7 +139,9 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
   });
 
   describe('PrismaDeliveryZoneRepository', () => {
-    test('findByCode & findAssignedZonesByShipper: manages zones & shipper assignments (UC08)', async () => {
+    test('findByCode & findAssignedZonesByShipper: manages zones & shipper assignments (UC08)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const zone = await zoneRepo.findByCode('ZONE-CG-01');
       assert.notEqual(zone, null);
       assert.equal(zone!.getDistrict(), 'Cầu Giấy');
@@ -128,7 +153,9 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
   });
 
   describe('PrismaOrderRepository', () => {
-    test('findByTrackingCode: retrieves seed orders accurately (UC15, UC23)', async () => {
+    test('findByTrackingCode: retrieves seed orders accurately (UC15, UC23)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const orderCreated = await orderRepo.findByTrackingCode('TRK-20261029-0001');
       assert.notEqual(orderCreated, null);
       assert.equal(orderCreated!.getCurrentStatus(), ORDER_STATUS.CREATED);
@@ -139,20 +166,26 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.equal(orderAtHub!.getCurrentStatus(), ORDER_STATUS.AT_HUB);
     });
 
-    test('findByHubAndStatus: filters hub inventory (UC10, UC16)', async () => {
+    test('findByHubAndStatus: filters hub inventory (UC10, UC16)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const hubOrders = await orderRepo.findByHubAndStatus(hubHanoiId, ORDER_STATUS.AT_HUB);
       assert.equal(hubOrders.length >= 1, true);
       assert.equal(hubOrders.every((o) => o.getCurrentStatus() === ORDER_STATUS.AT_HUB), true);
     });
 
-    test('countByStatus: generates KPI dashboard metrics correctly (UC21)', async () => {
+    test('countByStatus: generates KPI dashboard metrics correctly (UC21)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const statusCounts = await orderRepo.countByStatus(hubHanoiId);
       assert.equal(typeof statusCounts[ORDER_STATUS.AT_HUB], 'number');
       assert.equal(typeof statusCounts[ORDER_STATUS.DELIVERED], 'number');
       assert.equal(statusCounts[ORDER_STATUS.AT_HUB] >= 1, true);
     });
 
-    test('search: paginates and filters by receiver phone and status (UC10)', async () => {
+    test('search: paginates and filters by receiver phone and status (UC10)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const result = await orderRepo.search({
         receiverPhone: '0912345678',
         page: 1,
@@ -163,7 +196,9 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.equal(result.orders[0].getReceiverPhone().getValue(), '0912345678');
     });
 
-    test('saveWithAuditLog: ACID transaction creates order and audit log atomically', async () => {
+    test('saveWithAuditLog: ACID transaction creates order and audit log atomically', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const uniqueCode = `TRK-TEST-${Date.now().toString().slice(-6)}`;
       const newOrder = new Order({
         trackingCode: new TrackingCode(uniqueCode),
@@ -186,7 +221,7 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       });
 
       const firstLog = new OrderStatusLog({
-        orderId: 0, // Sẽ được gán tự động sau khi insert order
+        orderId: 0,
         hubId: hubHanoiId,
         actorId: managerId,
         newStatus: ORDER_STATUS.CREATED,
@@ -197,15 +232,15 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.notEqual(saved.getId(), null);
       assert.equal(saved.getTrackingCode().getValue(), uniqueCode);
 
-      // Kiểm tra xem log đã được ghi nhận trong order_status_logs hay chưa
       const logs = await logRepo.findByOrderId(saved.getId()!);
       assert.equal(logs.length, 1);
       assert.equal(logs[0].getNewStatus(), ORDER_STATUS.CREATED);
       assert.equal(logs[0].getNote(), 'Đơn hàng tạo mới trong unit test');
     });
 
-    test('assignOrdersBatch: assigns multiple orders to shipper atomically (UC16)', async () => {
-      // Tạo một đơn hàng test mới ở trạng thái AT_HUB để gán (đảm bảo tính idempotent cho test)
+    test('assignOrdersBatch: assigns multiple orders to shipper atomically (UC16)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const batchTrackingCode = `TRK-BATCH-${Date.now().toString().slice(-6)}`;
       const orderToBatch = new Order({
         trackingCode: new TrackingCode(batchTrackingCode),
@@ -239,13 +274,11 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
 
       assert.equal(assignedCount, 1);
 
-      // Kiểm tra trạng thái đơn đã đổi sang OUT_FOR_DELIVERY
       const assignedOrder = await orderRepo.findById(orderIdToAssign);
       assert.notEqual(assignedOrder, null);
       assert.equal(assignedOrder!.getCurrentStatus(), ORDER_STATUS.OUT_FOR_DELIVERY);
       assert.equal(assignedOrder!.getAssignedShipperId(), shipper01Id);
 
-      // Kiểm tra log kiểm vết đã được tự động thêm
       const logs = await logRepo.findByOrderId(orderIdToAssign);
       assert.equal(logs.length >= 1, true);
       assert.equal(logs[0].getNewStatus(), ORDER_STATUS.OUT_FOR_DELIVERY);
@@ -253,7 +286,9 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
   });
 
   describe('PrismaCODSettlementRepository', () => {
-    test('save & findByCode: creates and retrieves settlement with detail lines (UC22)', async () => {
+    test('save & findByCode: creates and retrieves settlement with detail lines (UC22)', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
       const code = `COD-TEST-${Date.now().toString().slice(-6)}`;
       const settlement = new CODSettlement({
         settlementCode: code,
