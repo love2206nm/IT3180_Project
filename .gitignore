@@ -1,0 +1,48 @@
+# =============================================================================
+# GIT IGNORE - DELIVERY HUB MANAGEMENT SYSTEM (IT3180)
+# =============================================================================
+
+# 1. Dependencies (TUYỆT ĐỐI KHÔNG COMMIT LÊN GIT)
+node_modules/
+.pnp
+.pnp.js
+
+# 2. Environment Variables & Secrets (Bảo mật tài khoản & CSDL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Giữ lại .env.example để làm mẫu cho thành viên khác
+
+# 3. Next.js & Production Build Output
+.next/
+out/
+build/
+dist/
+
+# 4. Logs & Debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 5. OS & IDE Specific Files
+.DS_Store
+Thumbs.db
+*.sublime-workspace
+*.sublime-project
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# 6. Prisma SQLite temporary files (nếu có)
+*.db
+*.db-journal
+
+# 7. Testing Coverage
+coverage/
+.nyc_output/

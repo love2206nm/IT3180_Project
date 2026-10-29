@@ -1,0 +1,287 @@
+// =============================================================================
+// PRISMA SCHEMA FOR DELIVERY HUB MANAGEMENT SYSTEM
+// Platform: PostgreSQL
+// Project: IT3180 - Software Engineering
+// Architecture: Clean Architecture Monolith
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS (Khớp 1:1 với src/domain/constants/)
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  HUB_MANAGER
+  HUB_STAFF
+  SHIPPER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum HubStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentBy {
+  SENDER
+  RECEIVER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum OrderStatus {
+  CREATED
+  AT_HUB
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_ATTEMPT
+  RETURN_PENDING
+  RETURNED
+  CANCELLED
+}
+
+enum CODSettlementStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+// -----------------------------------------------------------------------------
+// MODELS (Bảng CSDL)
+// -----------------------------------------------------------------------------
+
+/// 1. Bảng Trạm giao nhận / Bưu cục
+model Hub {
+  id        BigInt    @id @default(autoincrement())
+  code      String    @unique @db.VarChar(50)
+  name      String    @db.VarChar(150)
+  address   String    @db.VarChar(255)
+  province  String    @db.VarChar(100)
+  district  String    @db.VarChar(100)
+  ward      String?   @db.VarChar(100)
+  phone     String?   @db.VarChar(20)
+  status    HubStatus @default(ACTIVE)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Quan hệ
+  users           User[]
+  deliveryZones   DeliveryZone[]
+  ordersAtHub     Order[]          @relation("OrdersAtHub")
+  orderStatusLogs OrderStatusLog[]
+  codSettlements  CODSettlement[]
+
+  @@map("hubs")
+}
+
+/// 2. Bảng Tài khoản & Nhân sự
+model User {
+  id           BigInt     @id @default(autoincrement())
+  hubId        BigInt?    @map("hub_id")
+  username     String     @unique @db.VarChar(50)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  fullName     String     @map("full_name") @db.VarChar(100)
+  email        String     @unique @db.VarChar(100)
+  phone        String     @unique @db.VarChar(20)
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Quan hệ
+  hub                Hub?             @relation(fields: [hubId], references: [id], onDelete: SetNull)
+  shipperZones       ShipperZone[]
+  assignedOrders     Order[]          @relation("AssignedShipperOrders")
+  createdLogs        OrderStatusLog[]
+  shipperSettlements CODSettlement[]  @relation("ShipperSettlements")
+  managedSettlements CODSettlement[]  @relation("ManagerSettlements")
+
+  // Chỉ mục tối ưu hóa:
+  // UC04 (Xem danh sách nhân viên theo trạm/vai trò) & UC16 (Lọc Shipper khả dụng tại trạm)
+  @@index([hubId, role, status])
+  @@map("users")
+}
+
+/// 3. Bảng Tuyến đường / Khu vực giao hàng trực thuộc Trạm
+model DeliveryZone {
+  id          BigInt  @id @default(autoincrement())
+  hubId       BigInt  @map("hub_id")
+  code        String  @unique @db.VarChar(50)
+  name        String  @db.VarChar(100)
+  district    String  @db.VarChar(100)
+  ward        String? @db.VarChar(100)
+  description String? @db.Text
+
+  // Quan hệ
+  hub          Hub           @relation(fields: [hubId], references: [id], onDelete: Cascade)
+  shipperZones ShipperZone[]
+
+  @@map("delivery_zones")
+}
+
+/// 4. Bảng Phân công tuyến cho Shipper
+model ShipperZone {
+  id           BigInt   @id @default(autoincrement())
+  shipperId    BigInt   @map("shipper_id")
+  zoneId       BigInt   @map("zone_id")
+  assignedDate DateTime @default(now()) @map("assigned_date") @db.Date
+  status       String   @default("ACTIVE") @db.VarChar(20)
+
+  // Quan hệ
+  shipper User         @relation(fields: [shipperId], references: [id], onDelete: Cascade)
+  zone    DeliveryZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  // Chỉ mục: UC08 (Kiểm tra tuyến Shipper phụ trách)
+  @@index([shipperId, status])
+  @@index([zoneId])
+  @@map("shipper_zones")
+}
+
+/// 5. Bảng Đơn hàng / Bưu kiện trung tâm
+model Order {
+  id                BigInt        @id @default(autoincrement())
+  trackingCode      String        @unique @map("tracking_code") @db.VarChar(50)
+  currentHubId      BigInt?       @map("current_hub_id")
+  assignedShipperId BigInt?       @map("assigned_shipper_id")
+  senderName        String        @map("sender_name") @db.VarChar(100)
+  senderPhone       String        @map("sender_phone") @db.VarChar(20)
+  senderAddress     String        @map("sender_address") @db.VarChar(255)
+  receiverName      String        @map("receiver_name") @db.VarChar(100)
+  receiverPhone     String        @map("receiver_phone") @db.VarChar(20)
+  receiverAddress   String        @map("receiver_address") @db.VarChar(255)
+  receiverProvince  String        @map("receiver_province") @db.VarChar(100)
+  receiverDistrict  String        @map("receiver_district") @db.VarChar(100)
+  receiverWard      String?       @map("receiver_ward") @db.VarChar(100)
+  weightGram        Decimal       @map("weight_gram") @db.Decimal(10, 2)
+  lengthCm          Decimal       @default(0) @map("length_cm") @db.Decimal(8, 2)
+  widthCm           Decimal       @default(0) @map("width_cm") @db.Decimal(8, 2)
+  heightCm          Decimal       @default(0) @map("height_cm") @db.Decimal(8, 2)
+  codAmount         Decimal       @default(0) @map("cod_amount") @db.Decimal(12, 2)
+  shippingFee       Decimal       @default(0) @map("shipping_fee") @db.Decimal(12, 2)
+  paymentBy         PaymentBy     @default(SENDER) @map("payment_by")
+  paymentStatus     PaymentStatus @default(UNPAID) @map("payment_status")
+  currentStatus     OrderStatus   @default(CREATED) @map("current_status")
+  deliveryAttempts  Int           @default(0) @map("delivery_attempts")
+  maxAttempts       Int           @default(3) @map("max_attempts")
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  // Quan hệ
+  currentHub           Hub?                   @relation("OrdersAtHub", fields: [currentHubId], references: [id], onDelete: SetNull)
+  assignedShipper      User?                  @relation("AssignedShipperOrders", fields: [assignedShipperId], references: [id], onDelete: SetNull)
+  statusLogs           OrderStatusLog[]
+  codSettlementDetails CODSettlementDetail[]
+
+  // ===========================================================================
+  // CHIẾN LƯỢC ĐÁNH INDEX TỐI ƯU HÓA 23 USE CASES
+  // ===========================================================================
+  // UC10: Tìm kiếm đơn hàng theo số điện thoại người nhận / người gửi
+  @@index([receiverPhone])
+  @@index([senderPhone])
+
+  // UC10, UC16, UC20, UC21:
+  // - Lọc đơn theo trạm và trạng thái (VD: trạm A + AT_HUB để điều phối; trạm A + RETURN_PENDING để hoàn)
+  // - Thống kê số lượng đơn theo trạng thái tại từng trạm (Dashboard KPI)
+  @@index([currentHubId, currentStatus])
+
+  // UC16: Gom nhóm đơn theo địa bàn quận/phường trực thuộc trạm để điều phối gán tuyến cho Shipper
+  @@index([currentHubId, receiverDistrict, receiverWard])
+
+  // UC17: Màn hình app của Shipper (Chỉ tải các đơn OUT_FOR_DELIVERY của riêng Shipper này)
+  @@index([assignedShipperId, currentStatus])
+
+  // UC22: Tính toán đối soát tiền COD (Lọc đơn đã giao thành công và đã thu tiền của Shipper)
+  @@index([assignedShipperId, currentStatus, paymentStatus])
+
+  // UC10: Sắp xếp và phân trang danh sách đơn hàng theo thời gian tạo mới nhất
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+/// 6. Bảng Lịch sử Hành trình Vận chuyển & Kiểm vết Bất biến (Audit Trail)
+model OrderStatusLog {
+  id             BigInt      @id @default(autoincrement())
+  orderId        BigInt      @map("order_id")
+  hubId          BigInt?     @map("hub_id")
+  actorId        BigInt      @map("actor_id")
+  previousStatus OrderStatus? @map("previous_status")
+  newStatus      OrderStatus @map("new_status")
+  failureReason  String?     @map("failure_reason") @db.VarChar(255)
+  proofImageUrl  String?     @map("proof_image_url") @db.VarChar(500)
+  locationLat    Decimal?    @map("location_lat") @db.Decimal(10, 7)
+  locationLng    Decimal?    @map("location_lng") @db.Decimal(10, 7)
+  note           String?     @db.Text
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Quan hệ
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  hub   Hub?  @relation(fields: [hubId], references: [id], onDelete: SetNull)
+  actor User  @relation(fields: [actorId], references: [id])
+
+  // Chỉ mục tối ưu:
+  // UC11 (Chi tiết đơn) & UC23 (Tra cứu công khai):
+  // Lấy dòng thời gian Timeline của đơn hàng sắp xếp từ mới nhất đến cũ nhất
+  @@index([orderId, createdAt(sort: Desc)])
+  @@map("order_status_logs")
+}
+
+/// 7. Bảng Phiên nộp và Đối soát Tiền thu hộ COD
+model CODSettlement {
+  id               BigInt              @id @default(autoincrement())
+  settlementCode   String              @unique @map("settlement_code") @db.VarChar(50)
+  hubId            BigInt              @map("hub_id")
+  shipperId        BigInt              @map("shipper_id")
+  managerId        BigInt?             @map("manager_id")
+  totalCodAmount   Decimal             @default(0) @map("total_cod_amount") @db.Decimal(14, 2)
+  totalOrdersCount Int                 @default(0) @map("total_orders_count")
+  status           CODSettlementStatus @default(PENDING)
+  notes            String?             @db.Text
+  settledAt        DateTime?           @map("settled_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  // Quan hệ
+  hub     Hub                   @relation(fields: [hubId], references: [id])
+  shipper User                  @relation("ShipperSettlements", fields: [shipperId], references: [id])
+  manager User?                 @relation("ManagerSettlements", fields: [managerId], references: [id])
+  details CODSettlementDetail[]
+
+  // Chỉ mục: UC22 (Tra cứu phiên nộp COD theo Trạm và theo Shipper)
+  @@index([hubId, status])
+  @@index([shipperId, status])
+  @@map("cod_settlements")
+}
+
+/// 8. Bảng Chi tiết Đơn hàng trong Phiên nộp COD
+model CODSettlementDetail {
+  id           BigInt  @id @default(autoincrement())
+  settlementId BigInt  @map("settlement_id")
+  orderId      BigInt  @map("order_id")
+  codCollected Decimal @default(0) @map("cod_collected") @db.Decimal(12, 2)
+
+  // Quan hệ
+  settlement CODSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  order      Order         @relation(fields: [orderId], references: [id])
+
+  @@index([settlementId])
+  @@map("cod_settlement_details")
+}
