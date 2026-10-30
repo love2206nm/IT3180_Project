@@ -50,7 +50,7 @@ export default async function HubDashboardPage() {
             Bảng Điều Khiển Vận Hành Bưu Cục
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Giám sát thời gian thực số lượng bưu phẩm, phân phối tuyến giao và thu hồi tiền mặt COD (UC21)
+            Giám sát thời gian thực số lượng bưu phẩm, phân phối tuyến giao và thu hồi tiền mặt COD
           </p>
         </div>
 

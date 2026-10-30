@@ -1,0 +1,57 @@
+version: '3.8'
+
+# =============================================================================
+# DOCKER COMPOSE CONFIGURATION - DELIVERY HUB MANAGEMENT SYSTEM
+# Services: PostgreSQL 16 Alpine + Next.js Standalone Application
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: delivery-hub-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-delivery_hub}
+    ports:
+      # Use port 5434 on host to avoid conflict with local postgres (5432)
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - pgdata_production:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-delivery_hub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - delivery_hub_network
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: delivery-hub-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-delivery_hub}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-kP9#vL2$xR8!mQ5&jW4*yT7@zB1%eN6^uA3~hK0+sD8_fC2=gE5<oZ9>tH4{qV7}wM}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+    networks:
+      - delivery_hub_network
+
+volumes:
+  pgdata_production:
+    driver: local
+
+networks:
+  delivery_hub_network:
+    driver: bridge

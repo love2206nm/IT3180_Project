@@ -1,31 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Wallet, CheckCircle2, Package, ArrowRight, AlertCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect, useTransition } from 'react';
+import { Wallet, CheckCircle2, Package, ArrowRight, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import { Button } from '../../../presentation/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../presentation/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../presentation/components/ui/table';
+import { createCODSettlementAction } from '../../../presentation/actions/cod.actions';
+import { getOrderListAction } from '../../../presentation/actions/order.actions';
+import { ORDER_STATUS } from '../../../domain/constants/order-status.constant';
+import { useAudioFeedback } from '../../../presentation/hooks/use-audio-feedback';
+import { isSuccess, isFailure } from '../../../application/interfaces';
+
+interface DeliveredOrderItem {
+  id: string;
+  trackingCode: string;
+  receiverName: string;
+  codAmount: number;
+  deliveredAt: string;
+}
 
 export default function ShipperCODSettlementPage() {
-  const [deliveredOrders, setDeliveredOrders] = useState([
-    {
-      id: 'ord-del-01',
-      trackingCode: 'MOCK-TRK-DELIVERED-01',
-      receiverName: 'Đặng Ngọc Ánh',
-      codAmount: 300000,
-      deliveredAt: '2026-10-30 09:15',
-    },
-    {
-      id: 'ord-del-02',
-      trackingCode: 'MOCK-TRK-DELIVERED-02',
-      receiverName: 'Lê Thu Trang',
-      codAmount: 150000,
-      deliveredAt: '2026-10-30 10:20',
-    },
-  ]);
-
-  const [selectedIds, setSelectedIds] = useState<string[]>(['ord-del-01', 'ord-del-02']);
+  const [deliveredOrders, setDeliveredOrders] = useState<DeliveredOrderItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [settlementSuccess, setSettlementSuccess] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const { playSuccess, playError } = useAudioFeedback();
+
+  const loadDeliveredOrders = async () => {
+    setIsLoading(true);
+    try {
+      const res = await getOrderListAction({ page: 1, limit: 50, status: ORDER_STATUS.DELIVERED });
+      if (res.success) {
+        const codOrders = res.data.items
+          .filter((ord) => ord.codAmount > 0)
+          .map((ord) => ({
+            id: ord.id,
+            trackingCode: ord.trackingCode,
+            receiverName: ord.receiverName,
+            codAmount: ord.codAmount,
+            deliveredAt: new Date(ord.createdAt).toLocaleDateString('vi-VN'),
+          }));
+        setDeliveredOrders(codOrders);
+        setSelectedIds(codOrders.map((o) => o.id));
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDeliveredOrders();
+  }, []);
 
   const totalSelectedCOD = deliveredOrders
     .filter((o) => selectedIds.includes(o.id))
@@ -45,23 +75,47 @@ export default function ShipperCODSettlementPage() {
       return;
     }
 
-    const code = `COD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    setSettlementSuccess(`Đã tạo phiên nộp tiền COD ${code} thành công! Vui lòng nộp ${totalSelectedCOD.toLocaleString('vi-VN')} đ tiền mặt cho Quản lý trạm để duyệt.`);
-    setDeliveredOrders((prev) => prev.filter((o) => !selectedIds.includes(o.id)));
-    setSelectedIds([]);
+    setErrorMessage(null);
+    setSettlementSuccess(null);
+
+    startTransition(async () => {
+      const res = await createCODSettlementAction({
+        hubId: '',
+        orderIds: selectedIds,
+        notes: 'Bàn giao tiền COD cuối ca',
+      });
+
+      if (isSuccess(res)) {
+        playSuccess();
+        setSettlementSuccess(
+          `Đã tạo phiên nộp tiền COD ${res.data.settlementCode} thành công! Vui lòng nộp ${res.data.totalCodAmount.toLocaleString('vi-VN')} đ tiền mặt cho Quản lý trạm để đối soát.`
+        );
+        setDeliveredOrders((prev) => prev.filter((o) => !selectedIds.includes(o.id)));
+        setSelectedIds([]);
+      } else if (isFailure(res)) {
+        playError();
+        setErrorMessage(res.error || 'Tạo phiên nộp tiền thất bại');
+      }
+    });
   };
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-        <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-accent" />
-          Nộp Tiền Thu Hộ COD Cuối Ca (UC22)
-        </h1>
-        <p className="text-xs text-slate-500">
-          Gom danh sách đơn hàng đã thu tiền mặt và tạo phiên bàn giao nộp tiền cho Quản lý trạm
-        </p>
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-accent" />
+            Nộp Tiền Thu Hộ COD Cuối Ca
+          </h1>
+          <p className="text-xs text-slate-500">
+            Gom danh sách đơn hàng đã thu tiền mặt và tạo phiên bàn giao nộp tiền cho Quản lý trạm
+          </p>
+        </div>
+
+        <Button variant="ghost" size="sm" onClick={loadDeliveredOrders} disabled={isLoading}>
+          <RefreshCw className={`w-4 h-4 text-slate-500 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       {settlementSuccess && (
@@ -71,6 +125,13 @@ export default function ShipperCODSettlementPage() {
             Tạo Phiên Nộp Tiền Thành Công!
           </div>
           <p className="text-[11px] leading-relaxed text-emerald-700">{settlementSuccess}</p>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -93,59 +154,69 @@ export default function ShipperCODSettlementPage() {
           Chọn đơn hàng để kết chuyển nộp tiền:
         </h3>
 
-        {deliveredOrders.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12 text-slate-400 text-xs">
+            Đang tải danh sách đơn đã giao...
+          </div>
+        ) : deliveredOrders.length > 0 ? (
           deliveredOrders.map((order) => {
             const isSelected = selectedIds.includes(order.id);
             return (
               <div
                 key={order.id}
                 onClick={() => handleToggleSelect(order.id)}
-                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'bg-orange-50/70 border-accent shadow-xs' : 'bg-white border-slate-200'}`}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  isSelected
+                    ? 'bg-amber-50/70 border-amber-300 shadow-xs'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleToggleSelect(order.id)}
-                    className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                    className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
                   />
                   <div>
-                    <span className="font-mono text-xs font-bold text-slate-900 block">{order.trackingCode}</span>
-                    <span className="text-[11px] text-slate-500">{order.receiverName} &bull; {order.deliveredAt}</span>
+                    <span className="font-mono text-xs font-bold text-slate-900 block">
+                      {order.trackingCode}
+                    </span>
+                    <span className="text-[11px] text-slate-500">Khách: {order.receiverName}</span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="font-mono text-xs font-extrabold text-accent block">
-                    {order.codAmount.toLocaleString('vi-VN')} đ
+                  <span className="font-mono text-xs font-bold text-emerald-700 block">
+                    +{order.codAmount.toLocaleString('vi-VN')} ₫
+                  </span>
+                  <span className="text-[10px] text-slate-400 flex items-center justify-end gap-1">
+                    <Clock className="w-3 h-3" />
+                    {order.deliveredAt}
                   </span>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="text-center py-12 text-slate-400 text-xs">
-            Không còn đơn hàng COD nào cần nộp.
+          <div className="text-center py-12 bg-white rounded-xl border border-slate-200 text-xs text-slate-400">
+            Hiện không có đơn hàng DELIVERED nào có tiền COD cần nộp.
           </div>
         )}
       </div>
 
       {/* Submit Button */}
-      {deliveredOrders.length > 0 && (
-        <div className="pt-2">
-          <Button
-            variant="accent"
-            size="lg"
-            disabled={selectedIds.length === 0}
-            onClick={handleCreateSettlement}
-            className="w-full font-bold shadow-md h-12 rounded-xl text-sm"
-          >
-            <Wallet className="w-5 h-5 mr-2" />
-            Tạo Phiên Nộp Tiền ({totalSelectedCOD.toLocaleString('vi-VN')} đ)
-          </Button>
-        </div>
-      )}
+      <Button
+        variant="accent"
+        size="lg"
+        onClick={handleCreateSettlement}
+        disabled={selectedIds.length === 0 || isPending}
+        isLoading={isPending}
+        className="w-full font-bold shadow-md h-12"
+      >
+        <Wallet className="w-4 h-4 mr-2" />
+        Xác Nhận Nộp {totalSelectedCOD.toLocaleString('vi-VN')} ₫
+      </Button>
     </div>
   );
 }
-

@@ -58,7 +58,7 @@ export default async function OrdersListPage({ searchParams }: OrdersPageProps) 
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Package className="w-6 h-6 text-primary" />
-            Quản Lý Danh Sách Đơn Hàng (UC10)
+            Quản Lý Danh Sách Đơn Hàng
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Tổng số: <span className="font-bold text-slate-900">{total}</span> đơn hàng trên toàn hệ thống
@@ -69,13 +69,13 @@ export default async function OrdersListPage({ searchParams }: OrdersPageProps) 
           <Link href="/orders/import">
             <Button variant="outline" size="sm">
               <FileSpreadsheet className="w-4 h-4 mr-1.5 text-slate-500" />
-              Nhập Excel/CSV (UC14)
+              Nhập Excel/CSV
             </Button>
           </Link>
           <Link href="/orders/create">
             <Button variant="primary" size="sm">
               <PlusCircle className="w-4 h-4 mr-1.5" />
-              Tạo Đơn Quầy (UC09)
+              Tạo Đơn Quầy
             </Button>
           </Link>
         </div>

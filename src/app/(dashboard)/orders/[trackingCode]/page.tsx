@@ -82,11 +82,15 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           </div>
         </div>
 
-        {/* Action Controls (UC12, UC13) */}
+        {/* Action Controls */}
         <OrderActionControls
           orderId={order.id}
           trackingCode={order.trackingCode}
           currentStatus={order.currentStatus}
+          initialReceiverName={order.receiverName}
+          initialReceiverPhone={order.receiverPhone}
+          initialReceiverAddress={order.receiverAddress}
+          initialNotes={order.notes}
         />
       </div>
 

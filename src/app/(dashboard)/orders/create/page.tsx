@@ -6,12 +6,14 @@ import { Package, ArrowLeft, CheckCircle2, AlertCircle, Calculator } from 'lucid
 import { Button } from '../../../../presentation/components/ui/button';
 import { Input } from '../../../../presentation/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../presentation/components/ui/card';
-import { PAYMENT_BY } from '../../../../domain/constants/payment.constant';
+import { PAYMENT_BY, type PaymentBy } from '../../../../domain/constants/payment.constant';
+import { createOrderAction } from '../../../../presentation/actions/order.actions';
+import { isSuccess, isFailure } from '../../../../application/interfaces';
 
 export default function CreateOrderPage() {
-  const [senderName, setSenderName] = useState('');
-  const [senderPhone, setSenderPhone] = useState('');
-  const [senderAddress, setSenderAddress] = useState('');
+  const [senderName, setSenderName] = useState('Kho Trung Tâm Hà Nội');
+  const [senderPhone, setSenderPhone] = useState('0912345678');
+  const [senderAddress, setSenderAddress] = useState('123 Xuân Thủy, Cầu Giấy, Hà Nội');
 
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
@@ -41,42 +43,34 @@ export default function CreateOrderPage() {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Chuẩn bị payload tương tác
     startTransition(async () => {
       try {
-        // Tương tác trực tiếp tạo đơn
-        const res = await fetch('/api/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            senderName,
-            senderPhone,
-            senderAddress,
-            receiverName,
-            receiverPhone,
-            receiverAddress,
-            receiverProvince,
-            receiverDistrict,
-            receiverWard,
-            weightGram: Number(weightGram),
-            lengthCm: Number(lengthCm),
-            widthCm: Number(widthCm),
-            heightCm: Number(heightCm),
-            codAmount: Number(codAmount),
-            paymentBy,
-            notes,
-          }),
+        const res = await createOrderAction({
+          senderName,
+          senderPhone,
+          senderAddress,
+          receiverName,
+          receiverPhone,
+          receiverAddress,
+          receiverProvince,
+          receiverDistrict,
+          receiverWard,
+          weightGram: Number(weightGram),
+          lengthCm: Number(lengthCm),
+          widthCm: Number(widthCm),
+          heightCm: Number(heightCm),
+          codAmount: Number(codAmount),
+          paymentBy: paymentBy as PaymentBy,
+          notes: notes || undefined,
         });
 
-        const data = await res.json();
-        if (data.success) {
-          setCreatedOrderCode(data.data.trackingCode);
-        } else {
-          setErrorMessage(data.error || 'Tạo đơn hàng thất bại');
+        if (isSuccess(res)) {
+          setCreatedOrderCode(res.data.trackingCode);
+        } else if (isFailure(res)) {
+          setErrorMessage(res.error || 'Tạo đơn hàng thất bại');
         }
-      } catch {
-        // Mock fallback thông báo nếu API đang được đồng bộ
-        setCreatedOrderCode(`TRK-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-MOCK`);
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo đơn');
       }
     });
   };
@@ -101,7 +95,7 @@ export default function CreateOrderPage() {
           </Link>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Tiếp Nhận Đơn Hàng Mới Tại Quầy (UC09)
+              Tiếp Nhận Đơn Hàng Mới Tại Quầy
             </h1>
             <p className="text-xs text-slate-500">
               Nhập thông tin người gửi, người nhận, thông số gói hàng và tự động in mã vận đơn

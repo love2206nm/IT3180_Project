@@ -1,35 +1,84 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { RotateCcw, ArrowLeft, CheckCircle2, AlertCircle, Package } from 'lucide-react';
+import { RotateCcw, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../../../presentation/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '../../../../presentation/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../../presentation/components/ui/table';
 import { OrderStatusBadge } from '../../../../presentation/components/ui/badge';
 import { ORDER_STATUS } from '../../../../domain/constants/order-status.constant';
+import { useServerAction } from '../../../../presentation/hooks/use-server-action';
+import { useAudioFeedback } from '../../../../presentation/hooks/use-audio-feedback';
+import { processReturnOrderAction } from '../../../../presentation/actions/shipment.actions';
+import { getOrderListAction } from '../../../../presentation/actions/order.actions';
 
-export default function ReturnsManagementPage() {
-  const [returnOrders, setReturnOrders] = useState([
-    {
-      id: 'ord-ret-01',
-      trackingCode: 'MOCK-TRK-FAIL3-01',
-      senderName: 'Shop Quần Áo Nam',
-      senderPhone: '0988111222',
-      receiverName: 'Khách Hàng Từ Chối',
-      receiverPhone: '0912999888',
-      reason: 'Khách từ chối nhận hàng (CUSTOMER_REJECTED)',
-      attempts: 3,
-      status: ORDER_STATUS.RETURN_PENDING,
-    },
-  ]);
+interface ReturnOrderItem {
+  id: string;
+  trackingCode: string;
+  senderName: string;
+  senderAddress: string;
+  receiverName: string;
+  receiverPhone: string;
+  reason: string;
+  attempts: number;
+}
 
+export default function ShipmentReturnsPage() {
+  const [returnOrders, setReturnOrders] = useState<ReturnOrderItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
-  const handleProcessReturn = (id: string, code: string) => {
-    // Xử lý chuyển hoàn (UC20)
-    setReturnOrders((prev) => prev.filter((o) => o.id !== id));
-    setMessage(`Đã hoàn tất thủ tục xuất chuyển hoàn đơn ${code} về cho người gửi (RETURNED).`);
+  const { playSuccess, playError } = useAudioFeedback();
+
+  const loadReturnOrders = async () => {
+    setIsLoading(true);
+    try {
+      const res = await getOrderListAction({ page: 1, limit: 50, status: ORDER_STATUS.RETURN_PENDING });
+      if (res.success) {
+        setReturnOrders(
+          res.data.items.map((ord) => ({
+            id: ord.id,
+            trackingCode: ord.trackingCode,
+            senderName: ord.senderName,
+            senderAddress: 'Kho gửi hàng ban đầu',
+            receiverName: ord.receiverName,
+            receiverPhone: ord.receiverPhone,
+            reason: 'Khách hàng từ chối nhận hoặc vượt quá số lần phát',
+            attempts: ord.deliveryAttempts ?? 3,
+          }))
+        );
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReturnOrders();
+  }, []);
+
+  const { execute: executeReturn, isPending } = useServerAction(processReturnOrderAction, {
+    onSuccess: (data) => {
+      playSuccess();
+      setMessage(`Đã hoàn tất thủ tục xuất chuyển hoàn đơn #${data.orderId} về cho người gửi (RETURNED).`);
+      loadReturnOrders();
+    },
+    onError: (err) => {
+      playError();
+      setMessage(`Xử lý chuyển hoàn thất bại: ${err}`);
+    },
+  });
+
+  const handleProcessReturn = async (id: string) => {
+    if (window.confirm('Xác nhận hoàn trả bưu kiện này về cho người gửi ban đầu?')) {
+      await executeReturn({
+        orderId: id,
+        hubId: '',
+        note: 'Xuất hoàn kho bưu cục về người gửi',
+      });
+    }
   };
 
   return (
@@ -45,13 +94,18 @@ export default function ReturnsManagementPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <RotateCcw className="w-6 h-6 text-purple-600" />
-              Xử Lý Hàng Chuyển Hoàn (UC20)
+              Xử Lý Hàng Chuyển Hoàn
             </h1>
             <p className="text-xs text-slate-500">
               Kiểm soát các đơn giao thất bại 3 lần hoặc khách từ chối nhận, thực hiện hoàn trả hàng cho Shop gửi
             </p>
           </div>
         </div>
+
+        <Button variant="outline" size="sm" onClick={loadReturnOrders} disabled={isLoading}>
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
+          Làm Mới
+        </Button>
       </div>
 
       {message && (
@@ -68,46 +122,51 @@ export default function ReturnsManagementPage() {
             <TableHead>Mã Vận Đơn</TableHead>
             <TableHead>Người Gửi (Nơi Hoàn Về)</TableHead>
             <TableHead>Người Nhận</TableHead>
-            <TableHead>Lý Do Hoàn</TableHead>
-            <TableHead>Số Lần Giao</TableHead>
-            <TableHead>Trạng Thái</TableHead>
+            <TableHead>Lý Do Chuyển Hoàn</TableHead>
+            <TableHead>Số Lần Thử</TableHead>
             <TableHead className="text-right">Thao Tác</TableHead>
           </TableRow>
         </TableHeader>
-
         <TableBody>
-          {returnOrders.length > 0 ? (
-            returnOrders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-mono font-bold text-primary">{order.trackingCode}</TableCell>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-12 text-slate-400 text-xs">
+                Đang tải danh sách hàng chuyển hoàn...
+              </TableCell>
+            </TableRow>
+          ) : returnOrders.length > 0 ? (
+            returnOrders.map((ord) => (
+              <TableRow key={ord.id}>
+                <TableCell className="font-mono font-bold text-primary">{ord.trackingCode}</TableCell>
                 <TableCell>
-                  <p className="font-semibold text-slate-900 text-xs">{order.senderName}</p>
-                  <p className="font-mono text-slate-500 text-[11px]">{order.senderPhone}</p>
+                  <p className="font-semibold text-slate-900 text-xs">{ord.senderName}</p>
+                  <p className="text-[11px] text-slate-500">{ord.senderAddress}</p>
                 </TableCell>
                 <TableCell>
-                  <p className="text-xs text-slate-800">{order.receiverName}</p>
+                  <p className="font-semibold text-slate-900 text-xs">{ord.receiverName}</p>
+                  <p className="font-mono text-[11px] text-slate-500">{ord.receiverPhone}</p>
                 </TableCell>
-                <TableCell className="text-xs text-red-600 font-medium">{order.reason}</TableCell>
-                <TableCell className="font-mono text-xs">{order.attempts} lần</TableCell>
                 <TableCell>
-                  <OrderStatusBadge status={order.status} />
+                  <span className="text-xs text-rose-600 font-medium">{ord.reason}</span>
                 </TableCell>
+                <TableCell className="font-mono text-xs">{ord.attempts} / 3 lần</TableCell>
                 <TableCell className="text-right">
                   <Button
-                    variant="primary"
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleProcessReturn(order.id, order.trackingCode)}
-                    className="text-xs"
+                    onClick={() => handleProcessReturn(ord.id)}
+                    disabled={isPending}
+                    className="text-purple-600 border-purple-200 hover:bg-purple-50 text-xs font-semibold"
                   >
-                    Hoàn Tất Trả Hàng
+                    Xác Nhận Xuất Hoàn
                   </Button>
                 </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-12 text-slate-400">
-                Hiện không có đơn hàng nào đang trong diện chờ chuyển hoàn (RETURN_PENDING).
+              <TableCell colSpan={6} className="text-center py-12 text-slate-400 text-xs">
+                Không có đơn hàng nào đang chờ xử lý chuyển hoàn (RETURN_PENDING).
               </TableCell>
             </TableRow>
           )}
@@ -116,4 +175,3 @@ export default function ReturnsManagementPage() {
     </div>
   );
 }
-
