@@ -1,7 +1,6 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
-import { Sidebar } from '../../presentation/components/layout/sidebar';
-import { Header } from '../../presentation/components/layout/header';
+import { KiotHeader } from '../../presentation/components/layout/kiot-header';
 import { getCurrentUserSession } from '../../presentation/actions/session.helper';
 import { USER_ROLE } from '../../domain/constants/roles.constant';
 
@@ -24,22 +23,19 @@ export default async function DashboardLayout({
   const userProp = {
     username: session.username,
     role: session.role,
+    hubId: session.hubId ? Number(session.hubId) : null,
     hubName: session.hubId ? `Bưu Cục #${session.hubId}` : 'Trung Tâm Toàn Quốc',
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Desktop Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen flex flex-col bg-[#F4F5F7] text-slate-800">
+      {/* Thanh Topbar ngang chuẩn KiotViet */}
+      <KiotHeader user={userProp} />
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 flex-col min-w-0">
-        <Header user={userProp} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {children}
-        </main>
-      </div>
+      {/* Vùng nội dung chính Full Width */}
+      <main className="flex-1 w-full max-w-[1680px] mx-auto p-3 sm:p-4 lg:p-5">
+        {children}
+      </main>
     </div>
   );
 }
-
