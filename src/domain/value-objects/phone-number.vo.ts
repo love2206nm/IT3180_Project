@@ -40,6 +40,14 @@ export class PhoneNumber {
   }
 
   /**
+   * Factory method tiện ích để tạo PhoneNumber.
+   * @param rawPhone Chuỗi số điện thoại thô
+   */
+  public static create(rawPhone: string): PhoneNumber {
+    return new PhoneNumber(rawPhone);
+  }
+
+  /**
    * Kiểm tra định dạng số điện thoại Việt Nam:
    * - Di động 10 số (bắt đầu bằng 03, 05, 07, 08, 09)
    * - Điện thoại cố định bưu cục 11 số (bắt đầu bằng 02: 024, 028...)
@@ -52,6 +60,14 @@ export class PhoneNumber {
   public getValue(): string {
     return this.value;
   }
+
+  /**
+   * Định dạng chuỗi số điện thoại chuẩn (10 chữ số).
+   */
+  public toStandardString(): string {
+    return this.value;
+  }
+
 
   /**
    * Ẩn các số ở giữa để bảo vệ quyền riêng tư người dùng khi tra cứu công khai (UC23).

@@ -28,6 +28,13 @@ export class Coordinates {
     this.longitude = longitude;
   }
 
+  /**
+   * Factory method tiện ích tạo Coordinates.
+   */
+  public static create(latitude: number, longitude: number): Coordinates {
+    return new Coordinates(latitude, longitude);
+  }
+
   public getLatitude(): number {
     return this.latitude;
   }

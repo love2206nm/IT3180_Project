@@ -39,9 +39,24 @@ export class Money {
     return new Money(0);
   }
 
+  /**
+   * Factory method tiện ích tạo Money từ số.
+   */
+  public static fromNumber(amount: number, currency?: string): Money {
+    return new Money(amount, currency);
+  }
+
   public getAmount(): number {
     return this.amount;
   }
+
+  /**
+   * Lấy số tiền dưới dạng số nguyên number.
+   */
+  public getAmountAsNumber(): number {
+    return this.amount;
+  }
+
 
   public getCurrency(): string {
     return this.currency;

@@ -28,4 +28,28 @@ export const DELIVERY_CONSTRAINTS = {
 
   /** Số lần đăng nhập sai tối đa trước khi tạm khóa tài khoản */
   MAX_LOGIN_FAILED_ATTEMPTS: 5,
+
+  /** Số tiền thu hộ COD tối đa cho 1 đơn hàng (50 triệu VNĐ - chống lỗi tràn số Decimal(12,2)) */
+  MAX_COD_AMOUNT_VND: 50000000,
+
+  /** Cước phí vận chuyển tối đa cho 1 đơn hàng (10 triệu VNĐ) */
+  MAX_SHIPPING_FEE_VND: 10000000,
+
+  /** Số lượng đơn hàng tối đa trong 1 lần import Excel hàng loạt (chống OOM DoS) */
+  MAX_IMPORT_BATCH_SIZE: 200,
+
+  /** Số lượng đơn hàng tối đa trong 1 lần gán cho Shipper */
+  MAX_ASSIGN_BATCH_SIZE: 100,
+
+  /** Số lượng đơn hàng tối đa trong 1 phiên đối soát nộp tiền COD */
+  MAX_SETTLEMENT_BATCH_SIZE: 100,
+
+  /** Độ dài tối đa của từ khóa tìm kiếm (chống Database CPU DoS) */
+  MAX_SEARCH_TERM_LENGTH: 100,
+
+  /** Độ dài tối đa của định danh đơn hàng tra cứu */
+  MAX_IDENTIFIER_LENGTH: 50,
+
+  /** Danh sách domain lưu trữ ảnh POD hợp lệ (chống SSRF) */
+  ALLOWED_POD_DOMAINS: ['r2.deliveryhub.vn', 'storage.deliveryhub.vn', 'localhost'] as const,
 } as const;

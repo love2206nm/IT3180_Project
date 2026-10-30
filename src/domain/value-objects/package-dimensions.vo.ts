@@ -56,6 +56,13 @@ export class PackageDimensions {
     this.heightCm = Math.round(height * 10) / 10;
   }
 
+  /**
+   * Factory method tiện ích tạo PackageDimensions.
+   */
+  public static create(lengthCm: number, widthCm: number, heightCm: number, weightGram: number): PackageDimensions {
+    return new PackageDimensions({ lengthCm, widthCm, heightCm, weightGram });
+  }
+
   public getWeightGram(): number {
     return this.weightGram;
   }
