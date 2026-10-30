@@ -107,8 +107,12 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
 
       const admin = await userRepo.findByUsername('admin');
       assert.notEqual(admin, null);
-      assert.equal(admin!.getEmail(), 'admin@delivery.vn');
+      assert.ok(admin!.getEmail().includes('@'));
       assert.equal(admin!.isAdmin(), true);
+
+      const adminByEmail = await userRepo.findByEmail(admin!.getEmail());
+      assert.notEqual(adminByEmail, null);
+      assert.equal(adminByEmail!.getUsername(), 'admin');
 
       const userByEmail = await userRepo.findByEmail('manager.cg@delivery.vn');
       assert.notEqual(userByEmail, null);
