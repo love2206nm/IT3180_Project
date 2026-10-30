@@ -73,45 +73,39 @@ export class GetHubStatisticsUseCase
       let totalCodCollected = 0;
 
       if (targetHubId) {
-        const shippers = await this.userRepository.findActiveShippersByHub(targetHubId);
+        const [shippers, stats] = await Promise.all([
+          this.userRepository.findActiveShippersByHub(targetHubId),
+          this.orderRepository.getShipperPerformanceStats(targetHubId),
+        ]);
+
+        const statMap = new Map<string, typeof stats[number]>();
+        for (const st of stats) {
+          statMap.set(st.shipperId, st);
+        }
 
         for (const shipper of shippers) {
-          const sid = shipper.getId()!;
-          const deliveredOrders = await this.orderRepository.findByShipperAndStatus(
-            sid,
-            ORDER_STATUS.DELIVERED
-          );
-          const outOrders = await this.orderRepository.findByShipperAndStatus(
-            sid,
-            ORDER_STATUS.OUT_FOR_DELIVERY
-          );
-          const failedOrders = await this.orderRepository.findByShipperAndStatus(
-            sid,
-            ORDER_STATUS.FAILED_ATTEMPT
-          );
-
-          const totalDelivered = deliveredOrders.length;
-          const totalFailed = failedOrders.length;
-          const totalAssigned = totalDelivered + totalFailed + outOrders.length;
+          const sid = String(shipper.getId()!);
+          const st = statMap.get(sid) ?? {
+            shipperId: sid,
+            totalAssigned: 0,
+            totalDelivered: 0,
+            totalFailed: 0,
+            totalCodCollected: 0,
+          };
 
           const successRate =
-            totalAssigned > 0 ? Math.round((totalDelivered / totalAssigned) * 100) : 0;
+            st.totalAssigned > 0 ? Math.round((st.totalDelivered / st.totalAssigned) * 100) : 0;
 
-          const shipperCod = deliveredOrders.reduce(
-            (acc, o) => acc + o.getCodAmount().getAmountAsNumber(),
-            0
-          );
-
-          totalCodCollected += shipperCod;
+          totalCodCollected += st.totalCodCollected;
 
           shipperPerformance.push({
-            shipperId: String(sid),
+            shipperId: sid,
             shipperName: shipper.getFullName(),
-            totalAssigned,
-            totalDelivered,
-            totalFailed,
+            totalAssigned: st.totalAssigned,
+            totalDelivered: st.totalDelivered,
+            totalFailed: st.totalFailed,
             successRate,
-            totalCodCollected: shipperCod,
+            totalCodCollected: st.totalCodCollected,
           });
         }
       }

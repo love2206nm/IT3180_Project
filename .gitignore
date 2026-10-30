@@ -57,3 +57,7 @@ Thumbs.db
 coverage/
 .nyc_output/
 .cache/
+__pycache__/
+*.py[cod]
+*$py.class
+

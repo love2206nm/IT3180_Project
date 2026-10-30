@@ -11,13 +11,13 @@ import { OrderStatusLog } from '../../../src/domain/entities/order-status-log.en
 import { DeliveryZone } from '../../../src/domain/entities/delivery-zone.entity';
 import { CODSettlement } from '../../../src/domain/entities/cod-settlement.entity';
 import type { IUserRepository, UserSearchCriteria } from '../../../src/domain/interface/repositories/user.repository.interface';
-import type { IHubRepository } from '../../../domain/interface/repositories/hub.repository.interface';
-import type { IOrderRepository, OrderSearchCriteria } from '../../../src/domain/interface/repositories/order.repository.interface';
+import type { IHubRepository } from '../../../src/domain/interface/repositories/hub.repository.interface';
+import type { IOrderRepository, OrderSearchCriteria, ShipperPerformanceStat } from '../../../src/domain/interface/repositories/order.repository.interface';
 import type { IOrderStatusLogRepository } from '../../../src/domain/interface/repositories/order-status-log.repository.interface';
 import type { IDeliveryZoneRepository } from '../../../src/domain/interface/repositories/delivery-zone.repository.interface';
 import type { ICODSettlementRepository } from '../../../src/domain/interface/repositories/cod-settlement.repository.interface';
 import type { IPasswordHasherService } from '../../../src/application/interfaces/password-hasher.service.interface';
-import type { IAuthTokenService, AuthTokenPayload } from '../../../src/application/interfaces/auth-token.service.interface';
+import type { IAuthTokenService, AuthTokenPayload, LoginLockoutStatus } from '../../../src/application/interfaces/auth-token.service.interface';
 import { ORDER_STATUS, type OrderStatus } from '../../../src/domain/constants/order-status.constant';
 import { USER_ROLE, type UserRole } from '../../../src/domain/constants/roles.constant';
 import { type UserStatus } from '../../../src/domain/constants/user-status.constant';
@@ -30,6 +30,11 @@ export class InMemoryUserRepository implements IUserRepository {
 
   async findById(id: string | number): Promise<User | null> {
     return this.users.get(String(id)) ?? null;
+  }
+
+  async findByIds(ids: (string | number)[]): Promise<User[]> {
+    const stringIds = new Set(ids.map(String));
+    return Array.from(this.users.values()).filter((u) => stringIds.has(String(u.getId())));
   }
 
   async findByUsername(username: string): Promise<User | null> {
@@ -127,6 +132,11 @@ export class InMemoryHubRepository implements IHubRepository {
     return this.hubs.get(String(id)) ?? null;
   }
 
+  async findByIds(ids: (string | number)[]): Promise<Hub[]> {
+    const stringIds = new Set(ids.map(String));
+    return Array.from(this.hubs.values()).filter((h) => stringIds.has(String(h.getId())));
+  }
+
   async findByCode(code: string): Promise<Hub | null> {
     const upper = code.trim().toUpperCase();
     for (const h of this.hubs.values()) {
@@ -173,6 +183,8 @@ export class InMemoryOrderRepository implements IOrderRepository {
   public orders: Map<string, Order> = new Map();
   public statusLogs: OrderStatusLog[] = [];
   private autoId = 1;
+
+  constructor(private readonly logRepo?: InMemoryOrderStatusLogRepository) {}
 
   async findById(id: string | number): Promise<Order | null> {
     return this.orders.get(String(id)) ?? null;
@@ -244,7 +256,23 @@ export class InMemoryOrderRepository implements IOrderRepository {
 
   async saveWithAuditLog(order: Order, log: OrderStatusLog): Promise<Order> {
     const savedOrder = await this.save(order);
-    this.statusLogs.push(log);
+    const logWithCorrectOrderId = new OrderStatusLog({
+      id: log.getId(),
+      orderId: savedOrder.getId()!,
+      hubId: log.getHubId(),
+      actorId: log.getActorId(),
+      previousStatus: log.getPreviousStatus(),
+      newStatus: log.getNewStatus(),
+      failureReason: log.getFailureReason(),
+      proofImageUrl: log.getProofImageUrl(),
+      location: log.getLocation(),
+      note: log.getNote(),
+      createdAt: log.getCreatedAt(),
+    });
+    this.statusLogs.push(logWithCorrectOrderId);
+    if (this.logRepo) {
+      await this.logRepo.save(logWithCorrectOrderId);
+    }
     return savedOrder;
   }
 
@@ -341,6 +369,47 @@ export class InMemoryOrderRepository implements IOrderRepository {
     }
 
     return record;
+  }
+
+  async getShipperPerformanceStats(hubId: string | number): Promise<ShipperPerformanceStat[]> {
+    const statsMap = new Map<string, ShipperPerformanceStat>();
+
+    for (const o of this.orders.values()) {
+      if (String(o.getCurrentHubId()) !== String(hubId)) continue;
+      const sid = o.getAssignedShipperId();
+      if (!sid) continue;
+      const sidStr = String(sid);
+
+      if (!statsMap.has(sidStr)) {
+        statsMap.set(sidStr, {
+          shipperId: sidStr,
+          totalAssigned: 0,
+          totalDelivered: 0,
+          totalFailed: 0,
+          totalCodCollected: 0,
+        });
+      }
+
+      const stat = statsMap.get(sidStr)!;
+      const status = o.getCurrentStatus();
+
+      if (
+        status === ORDER_STATUS.DELIVERED ||
+        status === ORDER_STATUS.OUT_FOR_DELIVERY ||
+        status === ORDER_STATUS.FAILED_ATTEMPT
+      ) {
+        stat.totalAssigned += 1;
+      }
+
+      if (status === ORDER_STATUS.DELIVERED) {
+        stat.totalDelivered += 1;
+        stat.totalCodCollected += o.getCodAmount().getAmountAsNumber();
+      } else if (status === ORDER_STATUS.FAILED_ATTEMPT) {
+        stat.totalFailed += 1;
+      }
+    }
+
+    return Array.from(statsMap.values());
   }
 }
 
@@ -509,6 +578,23 @@ export class InMemoryCODSettlementRepository implements ICODSettlementRepository
     this.settlements.set(String(id), settlement);
     return settlement;
   }
+
+  async hasOrdersInActiveSettlement(orderIds: (string | number)[]): Promise<string[]> {
+    const stringOrderIds = new Set(orderIds.map(String));
+    const matched: string[] = [];
+
+    for (const s of this.settlements.values()) {
+      if (s.getStatus() === 'REJECTED') continue;
+      for (const d of s.getDetails()) {
+        const oid = String(d.getOrderId());
+        if (stringOrderIds.has(oid)) {
+          matched.push(oid);
+        }
+      }
+    }
+
+    return matched;
+  }
 }
 
 export class MockPasswordHasherService implements IPasswordHasherService {
@@ -523,6 +609,7 @@ export class MockPasswordHasherService implements IPasswordHasherService {
 
 export class MockAuthTokenService implements IAuthTokenService {
   private revoked = new Set<string>();
+  public failedAttempts = new Map<string, { count: number; lockedUntil: Date | null }>();
 
   generateToken(payload: AuthTokenPayload, _expiresIn?: string): string {
     return `mock_token_for_${payload.userId}_${payload.role}`;
@@ -535,6 +622,7 @@ export class MockAuthTokenService implements IAuthTokenService {
       username: 'mock_user',
       role: USER_ROLE.ADMIN,
       hubId: null,
+      jti: 'mock-jti-01',
     };
   }
 
@@ -544,5 +632,30 @@ export class MockAuthTokenService implements IAuthTokenService {
 
   async isTokenRevoked(token: string): Promise<boolean> {
     return this.revoked.has(token);
+  }
+
+  async recordFailedLogin(identifier: string): Promise<LoginLockoutStatus> {
+    const key = identifier.trim().toLowerCase();
+    const existing = this.failedAttempts.get(key);
+    const count = (existing?.count ?? 0) + 1;
+    if (count >= 5) {
+      this.failedAttempts.set(key, { count, lockedUntil: new Date(Date.now() + 15 * 60 * 1000) });
+      return { isLocked: true, remainingMinutes: 15 };
+    }
+    this.failedAttempts.set(key, { count, lockedUntil: null });
+    return { isLocked: false };
+  }
+
+  async resetLoginAttempts(identifier: string): Promise<void> {
+    this.failedAttempts.delete(identifier.trim().toLowerCase());
+  }
+
+  async checkLoginLockout(identifier: string): Promise<LoginLockoutStatus> {
+    const key = identifier.trim().toLowerCase();
+    const existing = this.failedAttempts.get(key);
+    if (existing?.lockedUntil && existing.lockedUntil > new Date()) {
+      return { isLocked: true, remainingMinutes: 15 };
+    }
+    return { isLocked: false };
   }
 }

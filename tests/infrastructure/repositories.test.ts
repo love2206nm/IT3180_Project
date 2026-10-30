@@ -309,5 +309,71 @@ describe('Infrastructure Layer: Prisma Repositories Integration Test Suite', () 
       assert.notEqual(retrieved, null);
       assert.equal(retrieved!.getTotalCodAmount().getAmount(), 250000);
     });
+
+    test('hasOrdersInActiveSettlement: detects orders already in pending/confirmed settlements', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
+      // Tạo 1 order test và đưa vào 1 settlement
+      const orderTest = new Order({
+        trackingCode: new TrackingCode(`TRK-COD-${Date.now().toString().slice(-6)}`),
+        currentHubId: hubHanoiId,
+        senderName: 'COD Sender',
+        senderPhone: new PhoneNumber('0988111222'),
+        senderAddress: 'Số 1 Mai Dịch',
+        receiverName: 'COD Receiver',
+        receiverPhone: new PhoneNumber('0977222333'),
+        receiverAddress: new Address({ street: 'Số 2 Mai Dịch', district: 'Cầu Giấy', province: 'Hà Nội' }),
+        dimensions: new PackageDimensions({ weightGram: 500 }),
+        codAmount: new Money(300000),
+        shippingFee: new Money(20000),
+        paymentBy: PAYMENT_BY.RECEIVER,
+        currentStatus: ORDER_STATUS.DELIVERED,
+      });
+
+      const savedOrder = await orderRepo.save(orderTest);
+      const testOrderId = savedOrder.getId()!;
+
+      const code = `COD-CHK-${Date.now().toString().slice(-6)}`;
+      const settlement = new CODSettlement({
+        settlementCode: code,
+        hubId: hubHanoiId,
+        shipperId: shipper01Id,
+        totalCodAmount: new Money(300000),
+        totalOrdersCount: 1,
+        status: COD_SETTLEMENT_STATUS.PENDING,
+        details: [
+          new (await import('../../src/domain')).CODSettlementDetail({
+            orderId: testOrderId,
+            codCollected: new Money(300000),
+          }),
+        ],
+      });
+
+      await codRepo.save(settlement);
+
+      // Kiểm tra hasOrdersInActiveSettlement
+      const lockedIds = await codRepo.hasOrdersInActiveSettlement([testOrderId, 999999]);
+      assert.equal(lockedIds.includes(String(testOrderId)), true);
+      assert.equal(lockedIds.includes('999999'), false);
+    });
+  });
+
+  describe('Batch Loading & Aggregation Performance Repositories', () => {
+    test('findByIds: batch loads hubs and users in a single query', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
+      const hubs = await hubRepo.findByIds([hubHanoiId]);
+      assert.equal(hubs.length >= 1, true);
+
+      const users = await userRepo.findByIds([managerId, shipper01Id]);
+      assert.equal(users.length >= 2, true);
+    });
+
+    test('getShipperPerformanceStats: aggregates shipper performance in 1 groupBy query', async (t) => {
+      if (!isDbAvailable) { t.skip('PostgreSQL not available'); return; }
+
+      const stats = await orderRepo.getShipperPerformanceStats(hubHanoiId);
+      assert.equal(Array.isArray(stats), true);
+    });
   });
 });

@@ -241,6 +241,8 @@ export const ImportOrdersInputSchema = z.object({
 
 export type ImportOrdersInputDTO = z.infer<typeof ImportOrdersInputSchema>;
 
+export type { ImportOrdersResultDTO } from '../use-cases/orders/import-orders.use-case';
+
 export interface ImportOrdersOutputDTO {
   totalRequested: number;
   successCount: number;

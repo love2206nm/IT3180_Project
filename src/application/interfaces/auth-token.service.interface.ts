@@ -1,6 +1,6 @@
 /**
  * @file auth-token.service.interface.ts
- * @description Hợp đồng dịch vụ tạo và xác thực Token đăng nhập (JWT Helper Port).
+ * @description Hợp đồng dịch vụ tạo, xác thực Token đăng nhập và quản lý bảo mật phiên (JWT & Brute-Force Port).
  * @module application/interfaces
  */
 
@@ -25,7 +25,17 @@ export interface AuthTokenPayload {
 }
 
 /**
- * Cổng giao tiếp dịch vụ phát hành và kiểm tra Token xác thực.
+ * Trạng thái khóa tài khoản tạm thời chống tấn công dò mật khẩu (Brute-Force).
+ */
+export interface LoginLockoutStatus {
+  /** Có đang bị tạm khóa hay không */
+  isLocked: boolean;
+  /** Số phút còn lại trước khi được mở khóa (nếu bị khóa) */
+  remainingMinutes?: number;
+}
+
+/**
+ * Cổng giao tiếp dịch vụ phát hành, kiểm tra Token xác thực và chống tấn công Brute-Force.
  */
 export interface IAuthTokenService {
   /**
@@ -59,4 +69,28 @@ export interface IAuthTokenService {
    * @returns {Promise<boolean>} true nếu token đã bị thu hồi
    */
   isTokenRevoked(token: string): Promise<boolean>;
+
+  /**
+   * Ghi nhận một lần đăng nhập thất bại của tài khoản.
+   * Tự động tạm khóa nếu vượt quá số lần cho phép (ví dụ 5 lần).
+   *
+   * @param identifier Tên đăng nhập hoặc Email
+   * @returns {Promise<LoginLockoutStatus>} Trạng thái khóa sau lần thử này
+   */
+  recordFailedLogin(identifier: string): Promise<LoginLockoutStatus>;
+
+  /**
+   * Xóa bộ đếm số lần đăng nhập thất bại khi người dùng đăng nhập thành công.
+   *
+   * @param identifier Tên đăng nhập hoặc Email
+   */
+  resetLoginAttempts(identifier: string): Promise<void>;
+
+  /**
+   * Kiểm tra xem tài khoản có đang trong thời gian bị tạm khóa hay không.
+   *
+   * @param identifier Tên đăng nhập hoặc Email
+   * @returns {Promise<LoginLockoutStatus>}
+   */
+  checkLoginLockout(identifier: string): Promise<LoginLockoutStatus>;
 }

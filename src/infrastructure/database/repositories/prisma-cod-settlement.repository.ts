@@ -144,7 +144,7 @@ export class PrismaCODSettlementRepository implements ICODSettlementRepository {
         const details = settlement.getDetails();
         if (details.length > 0) {
           const detailRows = CODSettlementMapper.toPersistenceDetails(
-            createdHeader.id,
+            String(createdHeader.id),
             details
           );
           await tx.cODSettlementDetail.createMany({
@@ -160,5 +160,33 @@ export class PrismaCODSettlementRepository implements ICODSettlementRepository {
 
       return CODSettlementMapper.toDomain(rawResult);
     });
+  }
+
+  /**
+   * Kiểm tra xem các đơn hàng đã nằm trong phiên đối soát đang hoạt động (PENDING hoặc CONFIRMED) hay chưa.
+   * Chống gian lận nộp trùng tiền COD (Double-Spending) và xử lý Race Condition cấp CSDL.
+   *
+   * @param {(string | number)[]} orderIds Danh sách ID các đơn hàng cần kiểm tra
+   * @returns {Promise<string[]>} Danh sách các ID đơn hàng đã bị khóa trong phiên đối soát khác
+   */
+  public async hasOrdersInActiveSettlement(
+    orderIds: (string | number)[]
+  ): Promise<string[]> {
+    const bigOrderIds = orderIds.map(toBigInt).filter((id): id is bigint => id !== null);
+    if (bigOrderIds.length === 0) return [];
+
+    const activeDetails = await this.prisma.cODSettlementDetail.findMany({
+      where: {
+        orderId: { in: bigOrderIds },
+        settlement: {
+          status: { not: 'REJECTED' },
+        },
+      },
+      select: {
+        orderId: true,
+      },
+    });
+
+    return activeDetails.map((d) => String(d.orderId));
   }
 }

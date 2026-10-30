@@ -25,3 +25,12 @@ export const DELIVERY_FAILURE_REASON = {
 } as const;
 
 export type DeliveryFailureReason = (typeof DELIVERY_FAILURE_REASON)[keyof typeof DELIVERY_FAILURE_REASON];
+
+export const DELIVERY_FAILURE_REASON_LABELS: Record<DeliveryFailureReason, string> = {
+  [DELIVERY_FAILURE_REASON.CUSTOMER_UNREACHABLE]: 'Không liên lạc được (quá 3 cuộc)',
+  [DELIVERY_FAILURE_REASON.CUSTOMER_RESCHEDULED]: 'Khách hẹn giao lại ngày khác',
+  [DELIVERY_FAILURE_REASON.WRONG_ADDRESS_OR_PHONE]: 'Sai địa chỉ hoặc số điện thoại',
+  [DELIVERY_FAILURE_REASON.CUSTOMER_REJECTED]: 'Khách từ chối nhận hàng',
+  [DELIVERY_FAILURE_REASON.FORCE_MAJEURE]: 'Thời tiết / Sự cố bất khả kháng',
+  [DELIVERY_FAILURE_REASON.OTHER]: 'Lý do khác (ghi chú)',
+};

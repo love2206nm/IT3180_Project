@@ -1,6 +1,6 @@
 /**
  * @file order.repository.interface.ts
- * @description Hợp đồng lưu trữ và truy vấn Đơn hàng (Order Repository Port).
+ * @description Hợp đồng lưu trữ và truy vấn Đơn hàng / Bưu kiện (Order Repository Port).
  * @module domain/interface/repositories
  */
 
@@ -8,9 +8,6 @@ import { Order } from '../../entities/order.entity';
 import { OrderStatusLog } from '../../entities/order-status-log.entity';
 import type { OrderStatus } from '../../constants/order-status.constant';
 
-/**
- * Tiêu chí tìm kiếm và phân trang đơn hàng.
- */
 export interface OrderSearchCriteria {
   trackingCode?: string;
   senderPhone?: string;
@@ -25,7 +22,18 @@ export interface OrderSearchCriteria {
 }
 
 /**
- * Cổng giao tiếp lưu trữ đơn hàng (Port).
+ * Số liệu thống kê hiệu suất giao hàng và COD tổng hợp của một Shipper (UC21).
+ */
+export interface ShipperPerformanceStat {
+  shipperId: string;
+  totalAssigned: number;
+  totalDelivered: number;
+  totalFailed: number;
+  totalCodCollected: number;
+}
+
+/**
+ * Cổng giao tiếp lưu trữ và truy vấn bưu kiện đơn hàng (Port).
  */
 export interface IOrderRepository {
   /**
@@ -34,7 +42,7 @@ export interface IOrderRepository {
   findById(id: string | number): Promise<Order | null>;
 
   /**
-   * Tìm đơn hàng theo Mã vận đơn duy nhất (UC23, UC15).
+   * Tìm đơn hàng theo Mã vận đơn duy nhất (UC15, UC23).
    */
   findByTrackingCode(trackingCode: string): Promise<Order | null>;
 
@@ -60,18 +68,11 @@ export interface IOrderRepository {
 
   /**
    * Lưu hàng loạt đơn hàng mới (UC14 - Import Excel).
-   * @param orders Danh sách đơn hàng cần tạo
-   * @returns {Promise<Order[]>}
    */
   createBatch(orders: Order[]): Promise<Order[]>;
 
   /**
    * Gán hàng loạt đơn hàng cho một Shipper trong 1 transaction và tự động ghi log (UC16).
-   * @param orderIds Danh sách ID các đơn cần gán
-   * @param shipperId ID của Shipper nhận việc
-   * @param actorId ID của người điều phối thao tác
-   * @param note Ghi chú điều phối (nếu có)
-   * @returns {Promise<number>} Số lượng đơn hàng đã gán thành công
    */
   assignOrdersBatch(
     orderIds: (string | number)[],
@@ -82,8 +83,6 @@ export interface IOrderRepository {
 
   /**
    * Lấy danh sách đơn hàng đã giao thành công (DELIVERED, PAID) có thu COD nhưng chưa đối soát (UC22).
-   * @param shipperId ID của Shipper cần đối soát nộp tiền
-   * @returns {Promise<Order[]>}
    */
   findUnsettledCodOrdersByShipper(shipperId: string | number): Promise<Order[]>;
 
@@ -96,4 +95,12 @@ export interface IOrderRepository {
    * Thống kê số lượng đơn hàng theo từng trạng thái (UC21).
    */
   countByStatus(hubId?: string | number): Promise<Record<OrderStatus, number>>;
+
+  /**
+   * Thống kê tổng hợp hiệu suất toàn bộ Shipper tại trạm trong 1 câu truy vấn aggregate (UC21).
+   *
+   * @param hubId ID của trạm
+   * @returns {Promise<ShipperPerformanceStat[]>}
+   */
+  getShipperPerformanceStats(hubId: string | number): Promise<ShipperPerformanceStat[]>;
 }

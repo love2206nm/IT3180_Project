@@ -63,7 +63,7 @@ export class PrismaOrderStatusLogRepository implements IOrderStatusLogRepository
   public async saveBatch(logs: OrderStatusLog[]): Promise<void> {
     if (logs.length === 0) return;
 
-    const data = logs.map(OrderStatusLogMapper.toPersistenceCreate);
+    const data = logs.map((log) => OrderStatusLogMapper.toPersistenceCreate(log));
     await this.prisma.orderStatusLog.createMany({
       data,
     });
