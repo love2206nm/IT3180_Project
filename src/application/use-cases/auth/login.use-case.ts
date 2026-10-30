@@ -13,28 +13,14 @@ import type { IAuthTokenService } from '../../interfaces/auth-token.service.inte
 import { type LoginInputDTO, type LoginOutputDTO } from '../../dtos/auth.dto';
 import { USER_STATUS } from '../../../domain/constants/user-status.constant';
 
-interface FailedAttemptRecord {
-  count: number;
-  lockedUntil: Date | null;
-}
-
-/**
- * Bộ nhớ đệm lưu trữ số lần đăng nhập thất bại theo username/email.
- * Ngăn chặn tấn công Brute-Force và Credential Stuffing (UC01).
- */
-const failedAttemptsMap = new Map<string, FailedAttemptRecord>();
-
-/** Số lần đăng nhập sai tối đa cho phép trước khi tạm khóa */
+/** Số lần đăng nhập sai tối đa cho phép */
 const MAX_FAILED_ATTEMPTS = 5;
 
-/** Thời gian tạm khóa tài khoản: 15 phút (ms) */
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
-
 /**
- * Reset bộ nhớ đệm tạm khóa (Dành cho Unit Test)
+ * Reset bộ nhớ đệm tạm khóa (Hỗ trợ tương thích ngược cho Unit Test).
  */
 export function resetLoginLockoutCache(): void {
-  failedAttemptsMap.clear();
+  // Được hỗ trợ thông qua resetLoginAttempts trên authTokenService
 }
 
 export class LoginUserUseCase implements IUseCase<LoginInputDTO, Result<LoginOutputDTO, string>> {
@@ -56,12 +42,10 @@ export class LoginUserUseCase implements IUseCase<LoginInputDTO, Result<LoginOut
       const identifier = input.usernameOrEmail.trim().toLowerCase();
 
       // 1. Kiểm tra trạng thái tạm khóa Brute-Force (Lockout)
-      const record = failedAttemptsMap.get(identifier);
-      const now = new Date();
-      if (record?.lockedUntil && record.lockedUntil > now) {
-        const remainingMinutes = Math.ceil((record.lockedUntil.getTime() - now.getTime()) / 60000);
+      const lockout = await this.authTokenService.checkLoginLockout(identifier);
+      if (lockout.isLocked) {
         return failure(
-          `Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá ${MAX_FAILED_ATTEMPTS} lần. Vui lòng thử lại sau ${remainingMinutes} phút.`
+          `Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá ${MAX_FAILED_ATTEMPTS} lần. Vui lòng thử lại sau ${lockout.remainingMinutes ?? 15} phút.`
         );
       }
 
@@ -77,28 +61,19 @@ export class LoginUserUseCase implements IUseCase<LoginInputDTO, Result<LoginOut
       // 2. Kiểm tra mật khẩu
       const isPasswordValid = await this.passwordHasher.compare(input.password, user.getPasswordHash());
       if (!isPasswordValid) {
-        // Ghi nhận số lần đăng nhập sai
-        const currentCount = (record?.count ?? 0) + 1;
-        if (currentCount >= MAX_FAILED_ATTEMPTS) {
-          failedAttemptsMap.set(identifier, {
-            count: currentCount,
-            lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
-          });
+        // Ghi nhận số lần đăng nhập sai thông qua Auth Security Service
+        const failedLockout = await this.authTokenService.recordFailedLogin(identifier);
+        if (failedLockout.isLocked) {
           return failure(
-            `Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá ${MAX_FAILED_ATTEMPTS} lần. Vui lòng thử lại sau 15 phút.`
+            `Tài khoản đã bị tạm khóa do nhập sai mật khẩu quá ${MAX_FAILED_ATTEMPTS} lần. Vui lòng thử lại sau ${failedLockout.remainingMinutes ?? 15} phút.`
           );
         }
-
-        failedAttemptsMap.set(identifier, {
-          count: currentCount,
-          lockedUntil: null,
-        });
 
         return failure('Tên đăng nhập hoặc mật khẩu không chính xác');
       }
 
       // Đăng nhập thành công -> Xóa bộ đếm thất bại
-      failedAttemptsMap.delete(identifier);
+      await this.authTokenService.resetLoginAttempts(identifier);
 
       // 3. Kiểm tra trạng thái tài khoản
       if (user.getStatus() === USER_STATUS.LOCKED) {

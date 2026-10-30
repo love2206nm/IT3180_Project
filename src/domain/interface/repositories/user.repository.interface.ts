@@ -27,6 +27,14 @@ export interface IUserRepository {
   findById(id: string | number): Promise<User | null>;
 
   /**
+   * Tìm nhiều người dùng theo danh sách ID (Batch Loader tối ưu khử N+1 queries).
+   *
+   * @param ids Danh sách ID người dùng
+   * @returns {Promise<User[]>}
+   */
+  findByIds(ids: (string | number)[]): Promise<User[]>;
+
+  /**
    * Tìm người dùng theo Tên đăng nhập (UC01 - Login).
    */
   findByUsername(username: string): Promise<User | null>;

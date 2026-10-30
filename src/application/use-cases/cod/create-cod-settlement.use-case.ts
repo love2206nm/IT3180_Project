@@ -84,24 +84,12 @@ export class CreateCODSettlementUseCase
         return failure('Trạm giao nhận không tồn tại trên hệ thống');
       }
 
-      // 3. Chống COD Double-Spending: Kiểm tra xem các đơn hàng đã nằm trong phiên đối soát nào chưa
-      const existingSettlements = await this.codSettlementRepository.findByHub(input.hubId);
-      const activeSettledOrderIds = new Set<string>();
-
-      for (const s of existingSettlements) {
-        if (s.getStatus() !== COD_SETTLEMENT_STATUS.REJECTED) {
-          for (const d of s.getDetails()) {
-            activeSettledOrderIds.add(String(d.getOrderId()));
-          }
-        }
-      }
-
-      for (const orderId of input.orderIds) {
-        if (activeSettledOrderIds.has(String(orderId))) {
-          return failure(
-            `Đơn hàng ID "${orderId}" đã nằm trong một phiên nộp COD đang xử lý hoặc đã hoàn tất đối soát`
-          );
-        }
+      // 3. Chống COD Double-Spending: Kiểm tra nguyên tử tại CSDL xem các đơn hàng đã nằm trong phiên đối soát khả dụng nào chưa
+      const alreadySettledOrderIds = await this.codSettlementRepository.hasOrdersInActiveSettlement(input.orderIds);
+      if (alreadySettledOrderIds.length > 0) {
+        return failure(
+          `Đơn hàng ID "${alreadySettledOrderIds[0]}" đã nằm trong một phiên nộp COD đang xử lý hoặc đã hoàn tất đối soát`
+        );
       }
 
       // 4. Kiểm tra danh sách đơn hàng đã thu tiền

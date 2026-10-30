@@ -14,6 +14,14 @@ export interface IHubRepository {
   findById(id: string | number): Promise<Hub | null>;
 
   /**
+   * Tìm nhiều trạm theo danh sách ID (Batch Loader tối ưu khử N+1 queries).
+   *
+   * @param ids Danh sách ID các trạm
+   * @returns {Promise<Hub[]>}
+   */
+  findByIds(ids: (string | number)[]): Promise<Hub[]>;
+
+  /**
    * Tìm trạm theo Mã duy nhất (ví dụ: 'HUB-HAN-01').
    */
   findByCode(code: string): Promise<Hub | null>;

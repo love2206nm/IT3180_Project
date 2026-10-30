@@ -91,14 +91,14 @@ export class GetOrderDetailUseCase
       const logs = await this.orderStatusLogRepository.findByOrderId(order.getId()!);
 
       // Cache actor names và hub names trong logs
-      const actorMap = new Map<string, string>();
+      const actorMap = new Map<string, { name: string; role: string }>();
       const hubMap = new Map<string, string>();
 
       for (const log of logs) {
         const aid = String(log.getActorId());
         if (!actorMap.has(aid) && aid !== 'SYSTEM') {
           const u = await this.userRepository.findById(aid);
-          if (u) actorMap.set(aid, u.getFullName());
+          if (u) actorMap.set(aid, { name: u.getFullName(), role: u.getRole() });
         }
 
         const hid = log.getHubId() !== null ? String(log.getHubId()) : null;
@@ -112,6 +112,7 @@ export class GetOrderDetailUseCase
         const aid = String(log.getActorId());
         const hid = log.getHubId() !== null ? String(log.getHubId()) : null;
         const loc = log.getLocation();
+        const actorInfo = actorMap.get(aid);
 
         return {
           id: String(log.getId()),
@@ -119,7 +120,8 @@ export class GetOrderDetailUseCase
           hubId: hid,
           hubName: hid ? hubMap.get(hid) ?? null : null,
           actorId: aid,
-          actorName: aid === 'SYSTEM' ? 'Hệ thống tự động' : actorMap.get(aid) ?? aid,
+          actorName: aid === 'SYSTEM' ? 'Hệ thống tự động' : actorInfo?.name ?? aid,
+          actorRole: aid === 'SYSTEM' ? 'SYSTEM' : actorInfo?.role ?? 'STAFF',
           previousStatus: log.getPreviousStatus(),
           newStatus: log.getNewStatus(),
           failureReason: log.getFailureReason(),

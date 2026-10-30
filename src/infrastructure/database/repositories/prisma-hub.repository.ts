@@ -40,6 +40,22 @@ export class PrismaHubRepository implements IHubRepository {
   }
 
   /**
+   * Tìm nhiều trạm theo danh sách ID (Batch query khử N+1).
+   * @param {(string | number)[]} ids Danh sách ID trạm
+   * @returns {Promise<Hub[]>}
+   */
+  public async findByIds(ids: (string | number)[]): Promise<Hub[]> {
+    const bigIds = ids.map(toBigInt).filter((id): id is bigint => id !== null);
+    if (bigIds.length === 0) return [];
+
+    const rawHubs = await this.prisma.hub.findMany({
+      where: { id: { in: bigIds } },
+    });
+
+    return rawHubs.map(HubMapper.toDomain);
+  }
+
+  /**
    * Tìm trạm theo Mã duy nhất (ví dụ: 'HUB-HAN-01').
    * @param {string} code Mã trạm
    * @returns {Promise<Hub | null>}

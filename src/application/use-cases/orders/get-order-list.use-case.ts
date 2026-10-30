@@ -82,26 +82,29 @@ export class GetOrderListUseCase
         limit,
       });
 
-      // Lấy Hub Name cache
-      const hubMap = new Map<string, string>();
+      // Nạp song song thông tin Hub và Shipper bằng findByIds (Batch Loading khử N+1)
       const hubIds = Array.from(
         new Set(orders.map((o) => o.getCurrentHubId()).filter((id): id is string | number => id !== null))
       );
-      for (const hid of hubIds) {
-        const hub = await this.hubRepository.findById(hid);
-        if (hub) hubMap.set(String(hid), hub.getName());
-      }
-
-      // Lấy Shipper Name cache
-      const shipperMap = new Map<string, string>();
       const shipperIds = Array.from(
         new Set(
           orders.map((o) => o.getAssignedShipperId()).filter((id): id is string | number => id !== null)
         )
       );
-      for (const sid of shipperIds) {
-        const shipper = await this.userRepository.findById(sid);
-        if (shipper) shipperMap.set(String(sid), shipper.getFullName());
+
+      const [hubs, shippers] = await Promise.all([
+        hubIds.length > 0 ? this.hubRepository.findByIds(hubIds) : Promise.resolve([]),
+        shipperIds.length > 0 ? this.userRepository.findByIds(shipperIds) : Promise.resolve([]),
+      ]);
+
+      const hubMap = new Map<string, string>();
+      for (const h of hubs) {
+        hubMap.set(String(h.getId()), h.getName());
+      }
+
+      const shipperMap = new Map<string, string>();
+      for (const s of shippers) {
+        shipperMap.set(String(s.getId()), s.getFullName());
       }
 
       const items: OrderListItemDTO[] = orders.map((o) => {

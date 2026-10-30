@@ -75,6 +75,7 @@ export class ImportOrdersUseCase
       const trackingCodes: string[] = [];
 
       const defaultHubId = securityContext.hubId;
+      const verifiedHubCache = new Map<string, boolean>();
 
       for (let i = 0; i < input.orders.length; i++) {
         const row = i + 1;
@@ -87,8 +88,14 @@ export class ImportOrdersUseCase
               ? (item.currentHubId ?? defaultHubId)
               : securityContext.hubId;
           if (hubId) {
-            const hub = await this.hubRepository.findById(hubId);
-            if (!hub) {
+            const hidStr = String(hubId);
+            let exists = verifiedHubCache.get(hidStr);
+            if (exists === undefined) {
+              const hub = await this.hubRepository.findById(hubId);
+              exists = !!hub;
+              verifiedHubCache.set(hidStr, exists);
+            }
+            if (!exists) {
               errors.push({ row, error: `Trạm tiếp nhận "${hubId}" không tồn tại` });
               continue;
             }

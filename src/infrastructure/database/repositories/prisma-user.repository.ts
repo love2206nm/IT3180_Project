@@ -48,6 +48,22 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   /**
+   * Tìm nhiều người dùng theo danh sách ID (Batch query khử N+1).
+   * @param {(string | number)[]} ids Danh sách ID người dùng
+   * @returns {Promise<User[]>}
+   */
+  public async findByIds(ids: (string | number)[]): Promise<User[]> {
+    const bigIds = ids.map(toBigInt).filter((id): id is bigint => id !== null);
+    if (bigIds.length === 0) return [];
+
+    const rawUsers = await this.prisma.user.findMany({
+      where: { id: { in: bigIds } },
+    });
+
+    return rawUsers.map(UserMapper.toDomain);
+  }
+
+  /**
    * Tìm người dùng theo Tên đăng nhập (UC01 - Login).
    * @param {string} username Tên đăng nhập
    * @returns {Promise<User | null>}

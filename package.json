@@ -4,6 +4,9 @@
   "description": "Delivery Hub Management System - Course Project IT3180 (Software Engineering)",
   "type": "module",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "db:generate": "prisma generate --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:push": "prisma db push --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=src/infrastructure/database/prisma/schema.prisma",
@@ -12,7 +15,8 @@
     "db:mock:clean": "tsx scripts/clean_mock_data.ts",
     "db:studio": "prisma studio --schema=src/infrastructure/database/prisma/schema.prisma",
     "test": "npm run test:unit",
-    "test:unit": "tsx --test tests/domain/*.test.ts tests/application/*.test.ts tests/infrastructure/*.test.ts",
+    "test:unit": "tsx --test tests/domain/*.test.ts tests/application/*.test.ts tests/infrastructure/*.test.ts tests/presentation/*.test.ts",
+    "test:presentation": "tsx --test tests/presentation/*.test.ts",
     "test:e2e": "tsx --test tests/e2e/*.test.ts",
     "test:all": "tsx --test tests/**/*.test.ts",
     "test:domain": "tsx --test tests/domain/*.test.ts",
@@ -22,15 +26,26 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.64.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
     "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.19",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

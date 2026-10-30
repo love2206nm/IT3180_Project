@@ -82,8 +82,7 @@ export class GetPublicTrackingUseCase
       // Lấy lịch sử logs
       const logs = await this.orderStatusLogRepository.findByOrderId(order.getId()!);
 
-      // Lấy danh sách tên trạm liên quan
-      const hubMap = new Map<string, { name: string; province: string }>();
+      // Lấy danh sách tên trạm liên quan (Batch Loading khử N+1)
       const hubIds = Array.from(
         new Set(logs.map((l) => l.getHubId()).filter((id): id is string | number => id !== null))
       );
@@ -91,11 +90,10 @@ export class GetPublicTrackingUseCase
         hubIds.push(order.getCurrentHubId()!);
       }
 
-      for (const hid of hubIds) {
-        const hub = await this.hubRepository.findById(hid);
-        if (hub) {
-          hubMap.set(String(hid), { name: hub.getName(), province: hub.getProvince() });
-        }
+      const hubs = hubIds.length > 0 ? await this.hubRepository.findByIds(hubIds) : [];
+      const hubMap = new Map<string, { name: string; province: string }>();
+      for (const h of hubs) {
+        hubMap.set(String(h.getId()), { name: h.getName(), province: h.getProvince() });
       }
 
       const timeline: TrackingTimelineEventDTO[] = logs.map((log) => {

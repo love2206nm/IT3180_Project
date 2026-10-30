@@ -32,4 +32,13 @@ export interface ICODSettlementRepository {
    * Lưu hoặc cập nhật phiên đối soát COD.
    */
   save(settlement: CODSettlement): Promise<CODSettlement>;
+
+  /**
+   * Kiểm tra xem các đơn hàng đã nằm trong phiên đối soát đang hoạt động (PENDING hoặc CONFIRMED) hay chưa (UC22).
+   * Chống gian lận nộp trùng tiền COD (Double-Spending) và xử lý Race Condition cấp CSDL.
+   *
+   * @param orderIds Danh sách ID các đơn hàng cần kiểm tra
+   * @returns {Promise<string[]>} Danh sách các ID đơn hàng đã bị khóa trong phiên đối soát khác
+   */
+  hasOrdersInActiveSettlement(orderIds: (string | number)[]): Promise<string[]>;
 }

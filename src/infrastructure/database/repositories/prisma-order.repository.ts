@@ -8,6 +8,7 @@ import { PrismaClient, type Prisma, type Order as PrismaOrder } from '@prisma/cl
 import {
   type IOrderRepository,
   type OrderSearchCriteria,
+  type ShipperPerformanceStat,
   Order,
   OrderStatusLog,
   ORDER_STATUS,
@@ -399,5 +400,71 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
 
     return counts;
+  }
+
+  /**
+   * Thống kê tổng hợp hiệu suất toàn bộ Shipper tại trạm trong 1 câu truy vấn aggregate (UC21).
+   * Thay thế hoàn toàn vòng lặp 3xN queries.
+   *
+   * @param {string | number} hubId ID của trạm
+   * @returns {Promise<ShipperPerformanceStat[]>}
+   */
+  public async getShipperPerformanceStats(
+    hubId: string | number
+  ): Promise<ShipperPerformanceStat[]> {
+    const bigHubId = toBigInt(hubId);
+    if (!bigHubId) return [];
+
+    const groups = await this.prisma.order.groupBy({
+      by: ['assignedShipperId', 'currentStatus'],
+      where: {
+        currentHubId: bigHubId,
+        assignedShipperId: { not: null },
+      },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        codAmount: true,
+      },
+    });
+
+    const statsMap = new Map<string, ShipperPerformanceStat>();
+
+    for (const g of groups) {
+      if (!g.assignedShipperId) continue;
+      const sid = String(g.assignedShipperId);
+
+      if (!statsMap.has(sid)) {
+        statsMap.set(sid, {
+          shipperId: sid,
+          totalAssigned: 0,
+          totalDelivered: 0,
+          totalFailed: 0,
+          totalCodCollected: 0,
+        });
+      }
+
+      const stat = statsMap.get(sid)!;
+      const count = g._count.id;
+      const status = g.currentStatus;
+
+      if (
+        status === ORDER_STATUS.DELIVERED ||
+        status === ORDER_STATUS.OUT_FOR_DELIVERY ||
+        status === ORDER_STATUS.FAILED_ATTEMPT
+      ) {
+        stat.totalAssigned += count;
+      }
+
+      if (status === ORDER_STATUS.DELIVERED) {
+        stat.totalDelivered += count;
+        stat.totalCodCollected += Number(g._sum.codAmount ?? 0);
+      } else if (status === ORDER_STATUS.FAILED_ATTEMPT) {
+        stat.totalFailed += count;
+      }
+    }
+
+    return Array.from(statsMap.values());
   }
 }
