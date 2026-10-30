@@ -1,13 +1,18 @@
 import React from 'react';
 import Link from 'next/link';
-import { Package, Truck, ShieldCheck, Clock, Search, ArrowRight, Barcode, Phone, Building2, CheckCircle2 } from 'lucide-react';
+import { Package, Truck, ShieldCheck, Clock, Search, ArrowRight, Barcode, Phone, Building2, CheckCircle2, User } from 'lucide-react';
+import { getCurrentUserSession } from '../presentation/actions/session.helper';
+import { USER_ROLE } from '../domain/constants/roles.constant';
 
 /**
  * @file page.tsx (Home)
  * @description Trang chủ cổng thông tin bưu cục DeliveryHub theo chuẩn KiotViet Design System.
  * Thiết kế phẳng, dứt khoát, chuyên nghiệp, đồng bộ nhận diện thương hiệu với phân hệ tác nghiệp bên trong.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getCurrentUserSession();
+  const targetDashboardUrl = session?.role === USER_ROLE.SHIPPER ? '/shipper/deliveries' : '/hub/dashboard';
+
   return (
     <div className="min-h-screen bg-[#F4F5F7] flex flex-col font-sans">
       {/* Topbar Kiot Style Header */}
@@ -34,12 +39,22 @@ export default function HomePage() {
             <Search className="w-3.5 h-3.5 text-blue-200" />
             Tra Cứu Vận Đơn
           </Link>
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white transition-colors shadow-2xs"
-          >
-            Đăng Nhập Cán Bộ
-          </Link>
+          {session ? (
+            <Link
+              href={targetDashboardUrl}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white transition-colors shadow-2xs"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Bàn Làm Việc ({session.username})</span>
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white transition-colors shadow-2xs"
+            >
+              Đăng Nhập Cán Bộ
+            </Link>
+          )}
         </div>
       </header>
 
@@ -174,7 +189,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/login"
+              href={targetDashboardUrl}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[#0066CC] hover:bg-[#0052A3] text-white font-bold text-xs uppercase tracking-wide transition-colors shrink-0 shadow-2xs"
             >
               <span>Vào Bàn Làm Việc</span>
