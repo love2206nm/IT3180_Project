@@ -13,6 +13,7 @@ import { USER_ROLE, type UserRole } from '../../../../domain/constants/roles.con
 import { USER_STATUS, type UserStatus } from '../../../../domain/constants/user-status.constant';
 import { useServerAction } from '../../../../presentation/hooks/use-server-action';
 import { useAudioFeedback } from '../../../../presentation/hooks/use-audio-feedback';
+import { isSuccess, isFailure } from '../../../../application/interfaces';
 import {
   getStaffListAction,
   createStaffAction,
@@ -25,6 +26,7 @@ import type { CreateStaffInputDTO, UpdateStaffInputDTO, StaffItemDTO } from '../
 export default function HubStaffManagementPage() {
   const [staffList, setStaffList] = useState<StaffItemDTO[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isForbidden, setIsForbidden] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffItemDTO | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -40,8 +42,17 @@ export default function HubStaffManagementPage() {
   const loadStaffList = async () => {
     setIsLoadingList(true);
     const res = await getStaffListAction({ page: 1, limit: 50 });
-    if (res.success) {
+    if (isSuccess(res)) {
       setStaffList(res.data.items);
+      setIsForbidden(false);
+    } else if (isFailure(res)) {
+      if (res.error.includes('không có quyền')) {
+        setIsForbidden(true);
+      }
+      setNotification({
+        type: 'error',
+        message: res.error,
+      });
     }
     setIsLoadingList(false);
   };
@@ -240,106 +251,125 @@ export default function HubStaffManagementPage() {
         </div>
       )}
 
-      {/* Bảng nhân sự */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Mã / Họ và Tên</TableHead>
-            <TableHead>Tài Khoản / Email</TableHead>
-            <TableHead>Vai Trò Vận Hành</TableHead>
-            <TableHead>Bưu Cục Quản Lý</TableHead>
-            <TableHead>Trạng Thái</TableHead>
-            <TableHead className="text-right">Thao Tác</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoadingList ? (
+      {/* Bảng nhân sự hoặc Thông báo 403 */}
+      {isForbidden ? (
+        <div className="bg-white rounded-md border border-amber-200 p-8 text-center shadow-2xs space-y-3">
+          <div className="h-12 w-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">403 - Quyền Truy Cập Bị Hạn Chế</h2>
+          <p className="text-xs text-slate-600 max-w-md mx-auto">
+            Chức năng quản trị và phân quyền nhân sự chỉ dành riêng cho Quản trị viên (ADMIN) và Quản lý bưu cục (HUB_MANAGER).
+          </p>
+          <div className="pt-2">
+            <Link href="/hub/dashboard">
+              <Button variant="outline" size="sm">
+                Quay lại Bàn Làm Việc
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-slate-400 text-xs">
-                Đang tải danh sách nhân sự...
-              </TableCell>
+              <TableHead>Mã / Họ và Tên</TableHead>
+              <TableHead>Tài Khoản / Email</TableHead>
+              <TableHead>Vai Trò Vận Hành</TableHead>
+              <TableHead>Bưu Cục Quản Lý</TableHead>
+              <TableHead>Trạng Thái</TableHead>
+              <TableHead className="text-right">Thao Tác</TableHead>
             </TableRow>
-          ) : staffList.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-slate-400 text-xs">
-                Chưa có nhân sự nào được cấu hình
-              </TableCell>
-            </TableRow>
-          ) : (
-            staffList.map((staff) => (
-              <TableRow key={staff.id}>
-                <TableCell>
-                  <div className="font-semibold text-slate-900">{staff.fullName}</div>
-                  <div className="text-[11px] text-slate-400 font-mono">ID: {staff.id}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-xs font-medium text-slate-700">{staff.username}</div>
-                  <div className="text-[11px] text-slate-400">{staff.email}</div>
-                </TableCell>
-                <TableCell>
-                  <RoleBadge role={staff.role} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{staff.hubName || (staff.hubId ? `Bưu cục #${staff.hubId}` : 'Chưa gán')}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <UserStatusBadge status={staff.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="inline-flex items-center gap-1">
-                    {staff.role === USER_ROLE.SHIPPER && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleOpenAssignZone(staff)}
-                        className="h-7 text-xs px-2"
-                        title="Gán tuyến giao hàng"
-                      >
-                        <Navigation className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                        Tuyến
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenEditModal(staff)}
-                      disabled={isTogglePending}
-                      className="h-7 text-xs px-2"
-                    >
-                      <Edit className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                      Sửa
-                    </Button>
-
-                    <Button
-                      variant={staff.status === USER_STATUS.ACTIVE ? 'destructive' : 'primary'}
-                      size="sm"
-                      onClick={() => handleToggleStatus(staff)}
-                      disabled={isTogglePending}
-                      className="h-7 text-xs px-2"
-                    >
-                      {staff.status === USER_STATUS.ACTIVE ? (
-                        <>
-                          <Lock className="w-3.5 h-3.5 mr-1" />
-                          Khóa
-                        </>
-                      ) : (
-                        <>
-                          <Unlock className="w-3.5 h-3.5 mr-1" />
-                          Mở
-                        </>
-                      )}
-                    </Button>
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {isLoadingList ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-400 text-xs">
+                  Đang tải danh sách nhân sự...
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : staffList.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-400 text-xs">
+                  Chưa có nhân sự nào được cấu hình
+                </TableCell>
+              </TableRow>
+            ) : (
+              staffList.map((staff) => (
+                <TableRow key={staff.id}>
+                  <TableCell>
+                    <div className="font-semibold text-slate-900">{staff.fullName}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">ID: {staff.id}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs font-medium text-slate-700">{staff.username}</div>
+                    <div className="text-[11px] text-slate-400">{staff.email}</div>
+                  </TableCell>
+                  <TableCell>
+                    <RoleBadge role={staff.role} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{staff.hubName || (staff.hubId ? `Bưu cục #${staff.hubId}` : 'Chưa gán')}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <UserStatusBadge status={staff.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center gap-1">
+                      {staff.role === USER_ROLE.SHIPPER && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleOpenAssignZone(staff)}
+                          className="h-7 text-xs px-2"
+                          title="Gán tuyến giao hàng"
+                        >
+                          <Navigation className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                          Tuyến
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEditModal(staff)}
+                        disabled={isTogglePending}
+                        className="h-7 text-xs px-2"
+                      >
+                        <Edit className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                        Sửa
+                      </Button>
+
+                      <Button
+                        variant={staff.status === USER_STATUS.ACTIVE ? 'destructive' : 'primary'}
+                        size="sm"
+                        onClick={() => handleToggleStatus(staff)}
+                        disabled={isTogglePending}
+                        className="h-7 text-xs px-2"
+                      >
+                        {staff.status === USER_STATUS.ACTIVE ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5 mr-1" />
+                            Khóa
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="w-3.5 h-3.5 mr-1" />
+                            Mở
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
 
       {/* Modal Thêm mới và Chỉnh sửa hồ sơ Nhân sự */}
       <StaffFormDialog

@@ -76,7 +76,7 @@ async function main() {
 
   // ---------------------------------------------------------------------------
   // BƯỚC 3: KHỞI TẠO TÀI KHOẢN NHÂN SỰ (USERS) VỚI CÁC VAI TRÒ
-  // Mật khẩu mặc định chung cho toàn bộ tài khoản demo: 'Password@123'
+  // Mật khẩu mặc định chung cho toàn bộ tài khoản demo: '123456789'
   // ---------------------------------------------------------------------------
   console.log('👥 [BƯỚC 3/6] Tạo danh sách Tài khoản Nhân sự (Admin, Manager, Staff, Shipper)...');
   const saltRounds = 10;

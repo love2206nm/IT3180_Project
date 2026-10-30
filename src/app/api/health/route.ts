@@ -68,8 +68,8 @@ export async function GET(): Promise<NextResponse<HealthCheckResponse>> {
       { status: 200 }
     );
   } catch (error: unknown) {
-    const errorMessage: string =
-      error instanceof Error ? error.message : 'Unknown health check failure';
+    // Ghi log chi tiết lỗi ra máy chủ phục vụ giám sát nội bộ, không serialize ra JSON phản hồi client
+    console.error('[HEALTHCHECK_ERROR]', error);
 
     return NextResponse.json<HealthCheckFailureResponse>(
       {
@@ -78,7 +78,7 @@ export async function GET(): Promise<NextResponse<HealthCheckResponse>> {
         timestamp,
         database: 'disconnected',
         version,
-        error: errorMessage,
+        error: 'Database connection failed or unreachable',
       },
       { status: 503 }
     );
