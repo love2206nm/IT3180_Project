@@ -53,7 +53,12 @@ export async function checkInHubAction(
 
     const rawData = parseActionInput(input);
     if (!rawData.hubId) {
-      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
+      if (sessionRes.data.hubId) {
+        rawData.hubId = String(sessionRes.data.hubId);
+      } else {
+        const allHubs = await appContainer.hubRepository.findAll();
+        rawData.hubId = allHubs.length > 0 ? String(allHubs[0].getId()) : '91';
+      }
     }
     const parsed = CheckInHubInputSchema.safeParse(rawData);
     if (!parsed.success) {
@@ -95,7 +100,12 @@ export async function assignOrdersToShipperAction(
 
     const rawData = parseActionInput(input);
     if (!rawData.hubId) {
-      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
+      if (sessionRes.data.hubId) {
+        rawData.hubId = String(sessionRes.data.hubId);
+      } else {
+        const allHubs = await appContainer.hubRepository.findAll();
+        rawData.hubId = allHubs.length > 0 ? String(allHubs[0].getId()) : '91';
+      }
     }
     const parsed = AssignOrdersToShipperInputSchema.safeParse(rawData);
     if (!parsed.success) {
@@ -232,7 +242,12 @@ export async function processReturnOrderAction(
 
     const rawData = parseActionInput(input);
     if (!rawData.hubId) {
-      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
+      if (sessionRes.data.hubId) {
+        rawData.hubId = String(sessionRes.data.hubId);
+      } else {
+        const allHubs = await appContainer.hubRepository.findAll();
+        rawData.hubId = allHubs.length > 0 ? String(allHubs[0].getId()) : '91';
+      }
     }
     const parsed = ProcessReturnOrderInputSchema.safeParse(rawData);
     if (!parsed.success) {

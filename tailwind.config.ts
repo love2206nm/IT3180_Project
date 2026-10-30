@@ -9,6 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        kiot: {
+          blue: {
+            DEFAULT: '#0066CC',
+            hover: '#0052A3',
+            light: '#EFF6FF',
+            dark: '#004C99',
+          },
+          green: {
+            DEFAULT: '#16A34A',
+            hover: '#15803D',
+            light: '#DCFCE7',
+          },
+          bg: '#F4F5F7',
+          surface: '#FFFFFF',
+          border: '#E2E8F0',
+          header: '#0066CC',
+        },
         primary: {
           DEFAULT: '#2563EB', // Tracking Blue
           hover: '#1D4ED8',

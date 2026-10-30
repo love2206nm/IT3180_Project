@@ -1,30 +1,31 @@
 'use client';
 
+/**
+ * @file page.tsx (orders/import)
+ * @description Màn hình Nhập Đơn Hàng Hàng Loạt chuẩn KiotViet.
+ * Hỗ trợ nhập danh sách bưu gửi theo lô, tải mẫu dữ liệu và hiển thị bảng kết quả nén cao.
+ * @module app/(dashboard)/orders/import
+ */
+
 import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { FileSpreadsheet, ArrowLeft, Upload, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
-import { Button } from '../../../../presentation/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '../../../../presentation/components/ui/card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../../presentation/components/ui/table';
+import {
+  FileSpreadsheet,
+  ArrowLeft,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  Loader2,
+  Package,
+} from 'lucide-react';
 import { importOrdersAction } from '../../../../presentation/actions/order.actions';
 import { isSuccess, isFailure } from '../../../../application/interfaces';
+import type { ImportOrdersResultDTO } from '../../../../application/use-cases/orders/import-orders.use-case';
 
-interface ImportedOrderItem {
-  trackingCode: string;
-  receiverName: string;
-  status: string;
-}
-
-interface ImportBatchResult {
-  total: number;
-  successCount: number;
-  failedCount: number;
-  orders: ImportedOrderItem[];
-}
-
-export default function ImportOrdersPage() {
-  const [jsonInput, setJsonInput] = useState('');
-  const [importResult, setImportResult] = useState<ImportBatchResult | null>(null);
+export default function ImportOrdersKiotPage() {
+  const [jsonInput, setJsonInput] = useState<string>('');
+  const [importResult, setImportResult] = useState<ImportOrdersResultDTO | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -39,14 +40,18 @@ export default function ImportOrdersPage() {
     "receiverProvince": "Hà Nội",
     "receiverDistrict": "Cầu Giấy",
     "weightGram": 500,
+    "lengthCm": 20,
+    "widthCm": 15,
+    "heightCm": 5,
     "codAmount": 150000,
     "notes": "Hàng điện tử dễ vỡ"
   }
 ]`;
 
-  const handleImport = (e: React.FormEvent) => {
+  const handleImport = (e: React.FormEvent): void => {
     e.preventDefault();
     setErrorMessage(null);
+
     startTransition(async () => {
       try {
         const parsed = JSON.parse(jsonInput);
@@ -57,160 +62,159 @@ export default function ImportOrdersPage() {
 
         const res = await importOrdersAction({ orders: parsed });
         if (isSuccess(res)) {
-          setImportResult({
-            total: res.data.totalRequested,
-            successCount: res.data.successCount,
-            failedCount: res.data.failedCount,
-            orders: res.data.trackingCodes.map((code: string, idx: number) => ({
-              trackingCode: code,
-              receiverName: (parsed[idx] as Record<string, unknown>)?.receiverName ? String((parsed[idx] as Record<string, unknown>).receiverName) : `Người nhận #${idx + 1}`,
-              status: 'Thành công',
-            })),
-          });
+          setImportResult(res.data);
         } else if (isFailure(res)) {
-          setErrorMessage(res.error || 'Import danh sách đơn hàng thất bại');
+          setErrorMessage(res.error || 'Nhập đơn hàng loạt thất bại');
         }
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Lỗi parse JSON';
-        setErrorMessage('Định dạng JSON không hợp lệ: ' + errorMsg);
+      } catch (err) {
+        setErrorMessage(
+          err instanceof Error
+            ? `Lỗi định dạng: ${err.message}`
+            : 'Dữ liệu nhập không hợp lệ. Vui lòng kiểm tra lại định dạng JSON.'
+        );
       }
     });
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/orders">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
+    <div className="space-y-3">
+      {/* Top Header Kiot Style */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-2.5 rounded border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/orders"
+            className="flex h-7 w-7 items-center justify-center rounded border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors"
+            title="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-primary" />
-              Nhập Đơn Hàng Loạt
+            <h1 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+              <FileSpreadsheet className="w-4 h-4 text-[#0066CC]" />
+              Nhập Đơn Hàng Hàng Loạt (Batch Import)
             </h1>
-            <p className="text-xs text-slate-500">
-              Hỗ trợ tải lên file Excel hoặc dán danh sách đơn hàng định dạng JSON (Tối đa 200 đơn/lần)
+            <p className="text-[11px] text-slate-500">
+              Nhập dữ liệu nhiều bưu gửi cùng lúc từ file hoặc dữ liệu JSON có sẵn
             </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setJsonInput(sampleTemplate)}
+            className="rounded border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors shadow-2xs"
+          >
+            Tải mẫu dữ liệu mẫu
+          </button>
+        </div>
       </div>
 
+      {/* Thông báo lỗi nếu có */}
       {errorMessage && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-700">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+        <div className="rounded border border-rose-300 bg-rose-50 p-3 shadow-xs flex items-center gap-2 text-rose-800 text-xs">
+          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* Main Upload Container */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left: Input Form */}
-        <div className="md:col-span-2 space-y-4">
-          <Card className="border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-sm">Dán Dữ Liệu Đơn Hàng (JSON Format)</CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <form onSubmit={handleImport} className="space-y-4">
-                <div>
-                  <textarea
-                    rows={12}
-                    value={jsonInput}
-                    onChange={(e) => setJsonInput(e.target.value)}
-                    placeholder={sampleTemplate}
-                    className="w-full rounded-xl border border-slate-300 p-3 text-xs font-mono bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setJsonInput(sampleTemplate)}
-                    className="text-xs"
-                  >
-                    Dán dữ liệu mẫu
-                  </Button>
-
-                  <Button type="submit" variant="primary" size="md" isLoading={isPending} className="font-semibold shadow-xs">
-                    <Upload className="w-4 h-4 mr-1.5" />
-                    Bắt Đầu Nhập Hàng Loạt
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: Template Instructions */}
-        <div className="space-y-4">
-          <Card className="border-slate-200 bg-blue-50/40">
-            <CardHeader>
-              <CardTitle className="text-xs uppercase tracking-wider text-primary flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" />
-                Quy Chuẩn Cấu Trúc File
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-slate-600 space-y-2 leading-relaxed">
-              <p>Mỗi đơn hàng cần có các trường bắt buộc:</p>
-              <ul className="list-disc pl-4 space-y-1 font-mono text-[11px] text-slate-700">
-                <li>senderName, senderPhone</li>
-                <li>receiverName, receiverPhone</li>
-                <li>receiverAddress, receiverDistrict</li>
-                <li>weightGram (gram)</li>
-                <li>codAmount (VNĐ, mặc định 0)</li>
-              </ul>
-              <div className="pt-2 text-[11px] text-slate-500 border-t border-blue-100">
-                Lưu ý: Giới hạn bảo vệ tối đa 200 đơn trong một phiên để đảm bảo hiệu năng database.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Result Section */}
+      {/* Kết quả nhập thành công */}
       {importResult && (
-        <Card className="border-slate-200">
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Kết Quả Nhập Đơn: Đã tạo {importResult.successCount} / {importResult.total} đơn
-            </CardTitle>
-            <Link href="/orders">
-              <Button variant="primary" size="sm">
-                Về danh sách đơn
-              </Button>
+        <div className="rounded border border-emerald-300 bg-emerald-50 p-4 shadow-xs space-y-3 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <div>
+                <h3 className="text-xs font-bold text-emerald-900">
+                  Nhập Dữ Liệu Hoàn Tất: {importResult.successCount} / {importResult.totalRequested} đơn thành công
+                </h3>
+                <p className="text-[11px] text-emerald-700">Các mã vận đơn đã được sinh tự động vào kho</p>
+              </div>
+            </div>
+
+            <Link
+              href="/orders"
+              className="rounded bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 text-xs font-semibold shadow-xs"
+            >
+              Xem danh sách đơn hàng
             </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mã Vận Đơn Được Cấp</TableHead>
-                  <TableHead>Người Nhận</TableHead>
-                  <TableHead>Trạng Thái</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {importResult.orders.map((ord: ImportedOrderItem, idx: number) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-mono font-bold text-primary">{ord.trackingCode}</TableCell>
-                    <TableCell>{ord.receiverName}</TableCell>
-                    <TableCell className="text-emerald-600 font-semibold text-xs">{ord.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+          </div>
+
+          {importResult.trackingCodes.length > 0 && (
+            <div className="overflow-x-auto bg-white rounded border border-emerald-200">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-emerald-100/60 text-emerald-900 font-semibold border-b border-emerald-200">
+                  <tr>
+                    <th className="py-2 px-3 w-12 text-center">#</th>
+                    <th className="py-2 px-3">Mã Vận Đơn Khởi Tạo</th>
+                    <th className="py-2 px-3 text-center">Trạng Thái Khởi Tạo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-emerald-100">
+                  {importResult.trackingCodes.map((code, idx) => (
+                    <tr key={code} className="hover:bg-emerald-50/40">
+                      <td className="py-1.5 px-3 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-[#0066CC]">{code}</td>
+                      <td className="py-1.5 px-3 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                          CREATED
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Khung Nhập Dữ Liệu Kiot Style */}
+      <form onSubmit={handleImport} className="bg-white p-4 rounded border border-slate-200 shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <label className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-[#0066CC]" />
+            <span>Nội Dung Danh Sách Bưu Gửi (Định Dạng JSON)</span>
+          </label>
+          <span className="text-[11px] text-slate-400">Có thể dán trực tiếp từ file xuất của đối tác</span>
+        </div>
+
+        <textarea
+          rows={12}
+          required
+          value={jsonInput}
+          onChange={(e) => setJsonInput(e.target.value)}
+          placeholder={sampleTemplate}
+          className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0066CC]"
+        />
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <Link
+            href="/orders"
+            className="rounded border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-medium text-slate-700 transition-colors"
+          >
+            Hủy bỏ
+          </Link>
+
+          <button
+            type="submit"
+            disabled={isPending}
+            className="flex items-center gap-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-white px-5 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Đang xử lý lô hàng...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-3.5 h-3.5" />
+                <span>Tiến Hành Nhập Đơn Hàng Loạt</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

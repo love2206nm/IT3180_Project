@@ -155,7 +155,11 @@ export async function getCODSettlementsListAction(
       return failure(sessionRes.error);
     }
 
-    const targetHubId = hubId || (sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3');
+    let targetHubId = hubId || (sessionRes.data.hubId ? String(sessionRes.data.hubId) : undefined);
+    if (!targetHubId) {
+      const allHubs = await appContainer.hubRepository.findAll();
+      targetHubId = allHubs.length > 0 ? String(allHubs[0].getId()) : '91';
+    }
     const settlements = await appContainer.codSettlementRepository.findByHub(targetHubId);
 
     const items: CODSettlementDTO[] = settlements.map((s) => ({

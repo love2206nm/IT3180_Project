@@ -52,3 +52,32 @@ src/
 * Mọi thay đổi trạng thái đơn hàng (`current_status`) bắt buộc phải:
   1. Sử dụng Database Transaction (ACID) khi có liên quan đến tiền COD.
   2. Tạo bản ghi lịch sử kiểm vết không thể sửa đổi (Immutable Audit Log) trong `order_status_logs`.
+
+---
+
+### 4. QUY CHUẨN GIAO DIỆN KIOTVIET DESIGN SYSTEM (BẮT BUỘC)
+
+1. **BỐ CỤC ĐIỀU HƯỚNG TỔNG THỂ (GLOBAL LAYOUT):**
+   * **Thanh Topbar Ngang:** Màu xanh thương hiệu KiotViet `#0066CC`, thương hiệu `DeliveryHub`, Hub Selector, Dropdown Menus phân hệ (`Tổng quan`, `Đơn hàng`, `Vận chuyển & Kho`, `Sổ quỹ & Đối soát`, `Nhân sự`, `Tra cứu`), và Nút hành động nổi bật màu xanh lá KiotViet `+ Tạo đơn` (`bg-[#16A34A] hover:bg-[#15803D]`).
+   * **Bảo vệ phiên đăng nhập (Session Security):** Tuyệt đối không điều hướng làm mất HTTP-Only cookie hay chuyển hướng vô cớ sang các trang công khai. Khi xem chi tiết đơn hàng hoặc đổi trạng thái, thực thi in-place.
+
+2. **MÀN HÌNH TÁC NGHIỆP 2 CỘT (HIGH DENSITY & ROW EXPANSION):**
+   * **Cột trái:** Khung bộ lọc Accordion (260px) gồm khoảng thời gian, trạng thái đơn, shipper phụ trách, tiền COD.
+   * **Cột phải:** Bảng dữ liệu nén cao (High-Density Table, font 12-13px, padding gọn `py-2 px-3`, border mỏng `border-slate-200`).
+   * **Row Expansion (Phương án A):** Bấm vào dòng đơn hàng để trượt mở rộng (Slide-down) xem thông tin người gửi/nhận, tiền COD, và Timeline lịch sử kiểm vết ngay bên dưới mà không rời khỏi trang.
+   * **Sticky Summary Footer:** Thanh tổng kết cố định ở đáy hiển thị Tổng số lượng bản ghi, Tổng tiền COD, và bộ phân trang.
+
+3. **MÀN HÌNH POS BÁN LẺ & VẬN HÀNH KHO:**
+   * Màn hình Tạo đơn `/orders/create` áp dụng giao diện POS 2 cột: Cột trái nhập thông tin bưu gửi, Cột phải là Phiếu bưu gửi tính cước tự động & Nút `Tạo đơn` màu xanh lá to bản.
+   * Màn hình Vận hành kho `/shipments/*` tập trung ô quét Barcode to rõ, phản hồi âm thanh beep và danh sách xử lý theo đợt.
+
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

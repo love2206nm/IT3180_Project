@@ -204,10 +204,14 @@ export default function HubStaffManagementPage() {
           </div>
         </div>
 
-        <Button variant="primary" size="sm" onClick={handleOpenCreateModal}>
-          <UserPlus className="w-4 h-4 mr-1.5" />
-          Thêm Nhân Sự Mới
-        </Button>
+        <button
+          type="button"
+          onClick={handleOpenCreateModal}
+          className="flex items-center gap-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer active:scale-95"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Thêm Nhân Sự Mới</span>
+        </button>
       </div>
 
       {/* Thông báo thao tác */}
