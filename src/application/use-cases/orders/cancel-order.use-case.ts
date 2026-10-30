@@ -52,7 +52,7 @@ export class CancelOrderUseCase
         securityContext.role === USER_ROLE.HUB_STAFF
       ) {
         const orderHubId = order.getCurrentHubId();
-        if (orderHubId && String(orderHubId) !== String(securityContext.hubId)) {
+        if (!orderHubId || String(orderHubId) !== String(securityContext.hubId)) {
           return failure('Bạn chỉ có quyền hủy đơn hàng đang trực thuộc trạm của mình');
         }
       } else if (securityContext.role !== USER_ROLE.ADMIN) {
