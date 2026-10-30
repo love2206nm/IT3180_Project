@@ -8,7 +8,7 @@
 
 import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Package, Lock, User, AlertCircle, ArrowLeft, Shield, UserCheck, Truck } from 'lucide-react';
+import { Package, Lock, User, AlertCircle, ArrowLeft } from 'lucide-react';
 import { loginAction } from '../../../presentation/actions/auth.actions';
 import { isFailure } from '../../../application/interfaces';
 import { USER_ROLE } from '../../../domain/constants/roles.constant';
@@ -19,12 +19,6 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isPending, startTransition] = useTransition();
-
-  const handleQuickFill = (u: string, p: string = '123456789') => {
-    setUsernameOrEmail(u);
-    setPassword(p);
-    setErrorMessage(null);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +108,7 @@ export default function LoginPage() {
                   type="text"
                   required
                   autoFocus
-                  placeholder="admin, manager_hn, shipper01..."
+                  placeholder="Nhập tên đăng nhập hoặc email..."
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
                   className="w-full h-9 pl-9 pr-3 text-xs bg-slate-50 border border-slate-300 rounded text-slate-900 font-mono focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0066CC] focus:border-[#0066CC]"
@@ -155,47 +149,6 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-
-          {/* Demo Account Quick Switcher: Tiện ích 1-chạm cho kiểm thử */}
-          <div className="border-t border-slate-100 pt-3 space-y-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Tài khoản mẫu thử nghiệm (Mật khẩu: 123456789):
-            </span>
-            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin')}
-                className="px-2 py-1.5 rounded border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#0066CC] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#0066CC] shrink-0" />
-                <span className="truncate">Admin (Toàn quyền)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('manager_hn')}
-                className="px-2 py-1.5 rounded border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#0066CC] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span className="truncate">Quản lý Cầu Giấy</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('staff01')}
-                className="px-2 py-1.5 rounded border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#0066CC] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Package className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate">Nhân viên quầy</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('shipper01')}
-                className="px-2 py-1.5 rounded border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#0066CC] text-left transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Truck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="truncate">Tài xế Shipper</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
