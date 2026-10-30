@@ -2,10 +2,12 @@
 
 import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { FileSpreadsheet, ArrowLeft, Upload, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
+import { FileSpreadsheet, ArrowLeft, Upload, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '../../../../presentation/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../presentation/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../../presentation/components/ui/table';
+import { importOrdersAction } from '../../../../presentation/actions/order.actions';
+import { isSuccess, isFailure } from '../../../../application/interfaces';
 
 interface ImportedOrderItem {
   trackingCode: string;
@@ -23,48 +25,54 @@ interface ImportBatchResult {
 export default function ImportOrdersPage() {
   const [jsonInput, setJsonInput] = useState('');
   const [importResult, setImportResult] = useState<ImportBatchResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const sampleTemplate = `[
   {
-    "senderName": "Shop Quần Áo Nam",
+    "senderName": "Kho Trung Tâm",
     "senderPhone": "0988111222",
-    "senderAddress": "Số 10 Tràng Tiền, Hà Nội",
-    "receiverName": "Trần Văn B",
+    "senderAddress": "Số 10 Tràng Tiền, Hoàn Kiếm, Hà Nội",
+    "receiverName": "Nguyễn Văn An",
     "receiverPhone": "0912345678",
-    "receiverAddress": "Số 20 Cầu Giấy, Hà Nội",
+    "receiverAddress": "Số 20 Cầu Giấy, Cầu Giấy, Hà Nội",
     "receiverProvince": "Hà Nội",
     "receiverDistrict": "Cầu Giấy",
     "weightGram": 500,
     "codAmount": 150000,
-    "notes": "Hàng dễ vỡ"
+    "notes": "Hàng điện tử dễ vỡ"
   }
 ]`;
 
   const handleImport = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     startTransition(async () => {
       try {
         const parsed = JSON.parse(jsonInput);
         if (!Array.isArray(parsed)) {
-          alert('Dữ liệu nhập phải là một mảng danh sách đơn hàng JSON');
+          setErrorMessage('Dữ liệu nhập phải là một mảng danh sách đơn hàng JSON');
           return;
         }
 
-        // Tạm thời mô phỏng kết quả import nếu API đang được hoàn thiện
-        setImportResult({
-          total: parsed.length,
-          successCount: parsed.length,
-          failedCount: 0,
-          orders: parsed.map((item: Record<string, unknown>, idx: number) => ({
-            trackingCode: `TRK-BATCH-${idx + 1}-${Date.now().toString().slice(-4)}`,
-            receiverName: String(item.receiverName || ''),
-            status: 'Thành công',
-          })),
-        });
+        const res = await importOrdersAction({ orders: parsed });
+        if (isSuccess(res)) {
+          setImportResult({
+            total: res.data.totalRequested,
+            successCount: res.data.successCount,
+            failedCount: res.data.failedCount,
+            orders: res.data.trackingCodes.map((code: string, idx: number) => ({
+              trackingCode: code,
+              receiverName: (parsed[idx] as Record<string, unknown>)?.receiverName ? String((parsed[idx] as Record<string, unknown>).receiverName) : `Người nhận #${idx + 1}`,
+              status: 'Thành công',
+            })),
+          });
+        } else if (isFailure(res)) {
+          setErrorMessage(res.error || 'Import danh sách đơn hàng thất bại');
+        }
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : 'Lỗi parse JSON';
-        alert('Định dạng JSON không hợp lệ: ' + errorMsg);
+        setErrorMessage('Định dạng JSON không hợp lệ: ' + errorMsg);
       }
     });
   };
@@ -82,7 +90,7 @@ export default function ImportOrdersPage() {
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-primary" />
-              Nhập Đơn Hàng Loạt (UC14)
+              Nhập Đơn Hàng Loạt
             </h1>
             <p className="text-xs text-slate-500">
               Hỗ trợ tải lên file Excel hoặc dán danh sách đơn hàng định dạng JSON (Tối đa 200 đơn/lần)
@@ -90,6 +98,13 @@ export default function ImportOrdersPage() {
           </div>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Main Upload Container */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

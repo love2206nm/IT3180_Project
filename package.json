@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "db:generate": "prisma generate --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:push": "prisma db push --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=src/infrastructure/database/prisma/schema.prisma",
@@ -21,7 +21,12 @@
     "test:all": "tsx --test tests/**/*.test.ts",
     "test:domain": "tsx --test tests/domain/*.test.ts",
     "test:infra": "tsx --test tests/infrastructure/*.test.ts",
-    "verify": "node scripts/verify_loops.mjs"
+    "verify": "node scripts/verify_loops.mjs",
+    "docker:build": "docker compose -f deploy/docker-compose.yml build",
+    "docker:up": "docker compose -f deploy/docker-compose.yml up -d",
+    "docker:down": "docker compose -f deploy/docker-compose.yml down",
+    "docker:logs": "docker compose -f deploy/docker-compose.yml logs -f app",
+    "docker:simulate": "tsx scripts/simulate_full_system.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

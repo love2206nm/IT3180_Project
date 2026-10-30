@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BadgeDollarSign, ArrowLeft, CheckCircle2, XCircle, Wallet, User, Clock, AlertCircle } from 'lucide-react';
+import { BadgeDollarSign, ArrowLeft, CheckCircle2, XCircle, Wallet, User, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../../../presentation/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../../presentation/components/ui/table';
 import { CODSettlementBadge } from '../../../../presentation/components/ui/badge';
@@ -10,7 +10,7 @@ import { CODSettlementReviewDialog } from '../../../../presentation/components/c
 import { COD_SETTLEMENT_STATUS, type CODSettlementStatus } from '../../../../domain/constants/cod-status.constant';
 import { useServerAction } from '../../../../presentation/hooks/use-server-action';
 import { useAudioFeedback } from '../../../../presentation/hooks/use-audio-feedback';
-import { reviewCODSettlementAction } from '../../../../presentation/actions/cod.actions';
+import { reviewCODSettlementAction, getCODSettlementsListAction } from '../../../../presentation/actions/cod.actions';
 import type { ReviewCODSettlementInputDTO } from '../../../../application/dtos/cod.dto';
 
 interface SettlementItem {
@@ -24,36 +24,43 @@ interface SettlementItem {
   notes?: string;
 }
 
-const INITIAL_SETTLEMENTS: SettlementItem[] = [
-  {
-    id: 'settle-01',
-    settlementCode: 'MOCK-COD-20261029-01',
-    shipperName: 'Nguyễn Văn Giao Hàng (Shipper 1)',
-    totalOrdersCount: 2,
-    totalCodAmount: 450000,
-    status: COD_SETTLEMENT_STATUS.PENDING,
-    createdAt: '2026-10-29 17:30',
-    notes: 'Phiên nộp tiền COD cuối ca Shipper 1',
-  },
-  {
-    id: 'settle-02',
-    settlementCode: 'COD-20261028-A19F',
-    shipperName: 'Hoàng Văn Vận Chuyển (Shipper 2)',
-    totalOrdersCount: 3,
-    totalCodAmount: 680000,
-    status: COD_SETTLEMENT_STATUS.CONFIRMED,
-    createdAt: '2026-10-28 18:15',
-    notes: 'Đã nhận đủ tiền mặt',
-  },
-];
-
 export default function HubCODSettlementsPage() {
-  const [settlements, setSettlements] = useState<SettlementItem[]>(INITIAL_SETTLEMENTS);
+  const [settlements, setSettlements] = useState<SettlementItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSettlement, setSelectedSettlement] = useState<SettlementItem | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { playSuccess, playError } = useAudioFeedback();
+
+  const loadSettlements = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await getCODSettlementsListAction();
+      if (res.success) {
+        setSettlements(
+          res.data.map((item) => ({
+            id: item.id,
+            settlementCode: item.settlementCode,
+            shipperName: item.shipperName || `Shipper #${item.shipperId}`,
+            totalOrdersCount: item.totalOrdersCount,
+            totalCodAmount: item.totalCodAmount,
+            status: item.status,
+            createdAt: new Date(item.createdAt).toLocaleString('vi-VN'),
+            notes: item.notes || undefined,
+          }))
+        );
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettlements();
+  }, [loadSettlements]);
 
   const { execute: executeReview, isPending } = useServerAction(reviewCODSettlementAction, {
     onSuccess: (data) => {
@@ -71,6 +78,7 @@ export default function HubCODSettlementsPage() {
             ? `Đã xác nhận thu đủ ${data.totalCodAmount.toLocaleString('vi-VN')} ₫ cho phiên ${data.settlementCode}!`
             : `Đã từ chối phiên nộp tiền ${data.settlementCode}. Đơn hàng đã được mở khóa để Shipper nộp lại.`,
       });
+      loadSettlements();
     },
     onError: (err) => {
       playError();
@@ -103,7 +111,7 @@ export default function HubCODSettlementsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <BadgeDollarSign className="w-6 h-6 text-emerald-600" />
-              Quản Lý Đối Soát Tiền Thu Hộ COD (UC22)
+              Quản Lý Đối Soát Tiền Thu Hộ COD
             </h1>
             <p className="text-xs text-slate-500">
               Kiểm đếm tiền mặt, duyệt hoặc từ chối các phiên bàn giao tiền COD cuối ca của Shipper
@@ -154,44 +162,59 @@ export default function HubCODSettlementsPage() {
         </TableHeader>
 
         <TableBody>
-          {settlements.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="font-mono font-bold text-primary">{item.settlementCode}</TableCell>
-              <TableCell>
-                <p className="font-semibold text-slate-900 text-xs">{item.shipperName}</p>
-                {item.notes && <p className="text-[11px] text-slate-400 italic">{item.notes}</p>}
-              </TableCell>
-              <TableCell className="font-mono text-xs">{item.totalOrdersCount} đơn</TableCell>
-              <TableCell className="font-mono font-bold text-emerald-600 text-sm">
-                {item.totalCodAmount.toLocaleString('vi-VN')} ₫
-              </TableCell>
-              <TableCell className="font-mono text-slate-500 text-xs">{item.createdAt}</TableCell>
-              <TableCell>
-                <CODSettlementBadge status={item.status} />
-              </TableCell>
-              <TableCell className="text-right">
-                {item.status === COD_SETTLEMENT_STATUS.PENDING ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleOpenReview(item)}
-                    className="text-xs h-8"
-                  >
-                    <BadgeDollarSign className="w-3.5 h-3.5 mr-1" />
-                    Đối Soát & Phê Duyệt
-                  </Button>
-                ) : (
-                  <span className="text-xs text-slate-400 italic">
-                    {item.status === COD_SETTLEMENT_STATUS.CONFIRMED ? 'Đã thu tiền' : 'Đã từ chối'}
-                  </span>
-                )}
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+                Đang tải danh sách phiên đối soát COD...
               </TableCell>
             </TableRow>
-          ))}
+          ) : settlements.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-400">
+                Chưa có phiên nộp tiền COD nào tại trạm
+              </TableCell>
+            </TableRow>
+          ) : (
+            settlements.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-mono font-bold text-primary">{item.settlementCode}</TableCell>
+                <TableCell>
+                  <p className="font-semibold text-slate-900 text-xs">{item.shipperName}</p>
+                  {item.notes && <p className="text-[11px] text-slate-400 italic">{item.notes}</p>}
+                </TableCell>
+                <TableCell className="font-mono text-xs">{item.totalOrdersCount} đơn</TableCell>
+                <TableCell className="font-mono font-bold text-emerald-600 text-sm">
+                  {item.totalCodAmount.toLocaleString('vi-VN')} ₫
+                </TableCell>
+                <TableCell className="font-mono text-slate-500 text-xs">{item.createdAt}</TableCell>
+                <TableCell>
+                  <CODSettlementBadge status={item.status} />
+                </TableCell>
+                <TableCell className="text-right">
+                  {item.status === COD_SETTLEMENT_STATUS.PENDING ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleOpenReview(item)}
+                      className="text-xs h-8"
+                    >
+                      <BadgeDollarSign className="w-3.5 h-3.5 mr-1" />
+                      Đối Soát & Phê Duyệt
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">
+                      {item.status === COD_SETTLEMENT_STATUS.CONFIRMED ? 'Đã thu tiền' : 'Đã từ chối'}
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
 
-      {/* Modal Đối soát và Duyệt nộp tiền COD (UC22) */}
+      {/* Modal Đối soát và Duyệt nộp tiền COD */}
       <CODSettlementReviewDialog
         isOpen={isReviewModalOpen}
         onClose={() => {

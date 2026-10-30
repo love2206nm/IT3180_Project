@@ -19,7 +19,7 @@ import {
   type CODSettlementDTO,
 } from '../../application/dtos/cod.dto';
 import type { Result } from '../../application/interfaces';
-import { failure, isFailure } from '../../application/interfaces';
+import { failure, isFailure, success } from '../../application/interfaces';
 import { appContainer } from '../../infrastructure/di';
 import { requireAuth } from './session.helper';
 import { parseActionInput } from './form-parser.helper';
@@ -77,6 +77,9 @@ export async function createCODSettlementAction(
     }
 
     const rawData = parseActionInput(input);
+    if (!rawData.hubId && sessionRes.data.hubId) {
+      rawData.hubId = String(sessionRes.data.hubId);
+    }
     const parsed = CreateCODSettlementInputSchema.safeParse(rawData);
     if (!parsed.success) {
       return formatZodFailure(parsed.error);
@@ -134,5 +137,50 @@ export async function reviewCODSettlementAction(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Lỗi khi duyệt đối soát COD';
     return failure(`Duyệt đối soát COD thất bại: ${message}`);
+  }
+}
+
+/**
+ * Server Action: Lấy danh sách các phiên nộp tiền COD tại trạm (UC22).
+ *
+ * @param {string} [hubId] ID trạm
+ * @returns {Promise<Result<CODSettlementDTO[], string>>}
+ */
+export async function getCODSettlementsListAction(
+  hubId?: string
+): Promise<Result<CODSettlementDTO[], string>> {
+  try {
+    const sessionRes = await requireAuth(COD_MANAGEMENT_ROLES);
+    if (isFailure(sessionRes)) {
+      return failure(sessionRes.error);
+    }
+
+    const targetHubId = hubId || (sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3');
+    const settlements = await appContainer.codSettlementRepository.findByHub(targetHubId);
+
+    const items: CODSettlementDTO[] = settlements.map((s) => ({
+      id: String(s.getId() ?? ''),
+      settlementCode: s.getSettlementCode(),
+      hubId: String(s.getHubId()),
+      shipperId: String(s.getShipperId()),
+      managerId: s.getManagerId() ? String(s.getManagerId()) : null,
+      totalCodAmount: s.getTotalCodAmount().getAmount(),
+      totalOrdersCount: s.getTotalOrdersCount(),
+      status: s.getStatus(),
+      notes: s.getNotes(),
+      settledAt: s.getSettledAt(),
+      createdAt: s.getCreatedAt(),
+      details: s.getDetails().map((d) => ({
+        id: String(d.getId() ?? ''),
+        orderId: String(d.getOrderId()),
+        trackingCode: '',
+        codCollected: d.getCodCollected().getAmount(),
+      })),
+    }));
+
+    return success(items);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Lỗi khi tải danh sách phiên đối soát';
+    return failure(`Không thể tải danh sách phiên đối soát: ${message}`);
   }
 }

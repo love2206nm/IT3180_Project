@@ -346,6 +346,21 @@ export class AppContainer {
         )),
     };
   }
+
+  /**
+   * Kiểm tra trạng thái kết nối tới Cơ sở dữ liệu (Database Health Probe)
+   * Phục vụ Endpoint GET /api/health và Container Liveness/Readiness Probe.
+   * 
+   * @returns {Promise<boolean>} True nếu CSDL sẵn sàng, False nếu mất kết nối
+   */
+  public async checkHealth(): Promise<boolean> {
+    try {
+      await this.hubRepository.findAll();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 /**

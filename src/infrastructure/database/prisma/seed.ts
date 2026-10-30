@@ -80,15 +80,15 @@ async function main() {
   // ---------------------------------------------------------------------------
   console.log('👥 [BƯỚC 3/6] Tạo danh sách Tài khoản Nhân sự (Admin, Manager, Staff, Shipper)...');
   const saltRounds = 10;
-  const defaultPasswordHash = await bcrypt.hash('Password@123', saltRounds);
+  const defaultPasswordHash = await bcrypt.hash('123456789', saltRounds);
 
   // 3.1 Super Admin (Quản trị viên toàn hệ thống, không gán cố định trạm nào)
   const adminUser = await prisma.user.create({
     data: {
       username: 'admin',
       passwordHash: defaultPasswordHash,
-      fullName: 'Trần Văn Quản Trị (Super Admin)',
-      email: 'admin@delivery.vn',
+      fullName: 'Nguyễn Hải Nam',
+      email: 'love2206nm@gmail.com',
       phone: '0901000001',
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,

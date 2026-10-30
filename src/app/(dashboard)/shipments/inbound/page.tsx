@@ -2,7 +2,7 @@
 
 /**
  * @file page.tsx
- * @description Màn hình Quét Inbound Nhập Kho Bưu Cục (UC15).
+ * @description Màn hình Quét Inbound Nhập Kho Bưu Cục.
  * Hỗ trợ súng quét mã vạch tốc độ cao, âm thanh phản hồi Web Audio API,
  * và kết nối trực tiếp với Server Action checkInHubAction.
  * @module app/(dashboard)/shipments/inbound
@@ -36,7 +36,7 @@ export default function InboundScanPage() {
   const processScan = (code: string) => {
     startTransition(async () => {
       try {
-        const res = await checkInHubAction({ trackingCode: code, hubId: '1' });
+        const res = await checkInHubAction({ trackingCode: code, hubId: '' });
 
         if (isSuccess(res)) {
           playSuccess();
@@ -92,7 +92,7 @@ export default function InboundScanPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <ScanBarcode className="w-6 h-6 text-primary" />
-              Quét Inbound Nhập Kho Trạm (UC15)
+              Quét Inbound Nhập Kho Trạm
             </h1>
             <p className="text-xs text-slate-500">
               Chế độ máy quét mã vạch tốc độ cao tại cửa kho bưu cục, tự động cập nhật trạng thái AT_HUB vào CSDL

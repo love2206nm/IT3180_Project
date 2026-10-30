@@ -52,8 +52,8 @@ export async function checkInHubAction(
     }
 
     const rawData = parseActionInput(input);
-    if (!rawData.hubId && sessionRes.data.hubId) {
-      rawData.hubId = String(sessionRes.data.hubId);
+    if (!rawData.hubId) {
+      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
     }
     const parsed = CheckInHubInputSchema.safeParse(rawData);
     if (!parsed.success) {
@@ -94,8 +94,8 @@ export async function assignOrdersToShipperAction(
     }
 
     const rawData = parseActionInput(input);
-    if (!rawData.hubId && sessionRes.data.hubId) {
-      rawData.hubId = String(sessionRes.data.hubId);
+    if (!rawData.hubId) {
+      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
     }
     const parsed = AssignOrdersToShipperInputSchema.safeParse(rawData);
     if (!parsed.success) {
@@ -231,6 +231,9 @@ export async function processReturnOrderAction(
     }
 
     const rawData = parseActionInput(input);
+    if (!rawData.hubId) {
+      rawData.hubId = sessionRes.data.hubId ? String(sessionRes.data.hubId) : '3';
+    }
     const parsed = ProcessReturnOrderInputSchema.safeParse(rawData);
     if (!parsed.success) {
       return formatZodFailure(parsed.error);

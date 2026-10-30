@@ -190,6 +190,10 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     return await this.prisma.$transaction(async (tx) => {
       const results: Order[] = [];
+      // Lấy ID người dùng thực tế trong hệ thống để tránh lỗi vi phạm khóa ngoại (FK constraint)
+      const firstUser = await tx.user.findFirst({ select: { id: true } });
+      const defaultActorId = firstUser ? firstUser.id : BigInt(1);
+
       for (const order of orders) {
         const savedRaw = await tx.order.create({
           data: OrderMapper.toPersistenceCreate(order),
@@ -199,7 +203,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         await tx.orderStatusLog.create({
           data: {
             orderId: savedRaw.id,
-            actorId: savedRaw.assignedShipperId ?? BigInt(1),
+            actorId: savedRaw.assignedShipperId ?? defaultActorId,
             newStatus: ORDER_STATUS.CREATED,
             note: 'Tạo đơn mới từ Import Excel',
           },
