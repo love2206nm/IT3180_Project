@@ -29,6 +29,11 @@ RUN npx prisma generate --schema=src/infrastructure/database/prisma/schema.prism
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
+# Dummy environment variables for Next.js build-time page analysis
+# (Actual production credentials from Render dashboard will be used at runtime)
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV JWT_SECRET="placeholder-jwt-secret-delivery-hub-system-secure-32chars"
+
 # Build standalone Next.js bundle
 RUN npm run build
 
