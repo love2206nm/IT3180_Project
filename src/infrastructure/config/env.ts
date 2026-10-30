@@ -11,6 +11,8 @@ import { z } from 'zod';
 // Nạp file .env vào process.env nếu chưa nạp
 dotenv.config();
 
+const isTestEnv = process.env.NODE_ENV === 'test';
+
 /**
  * Zod Schema định nghĩa và kiểm tra tính hợp lệ của toàn bộ biến môi trường.
  */
@@ -20,7 +22,12 @@ const envSchema = z.object({
     .min(1, 'DATABASE_URL không được để trống'),
   JWT_SECRET: z
     .string()
-    .min(32, 'JWT_SECRET phải có độ dài tối thiểu 32 ký tự để đảm bảo an toàn mật mã'),
+    .min(32, 'JWT_SECRET phải có độ dài tối thiểu 32 ký tự để đảm bảo an toàn mật mã')
+    .default(
+      isTestEnv
+        ? 'ci-test-jwt-secret-key-delivery-hub-it3180-system-secure-32chars'
+        : (undefined as unknown as string)
+    ),
   JWT_EXPIRES_IN: z
     .string()
     .default('1d'),

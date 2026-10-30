@@ -18,6 +18,8 @@ on:
 env:
   DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/delivery_hub?schema=public"
   NODE_ENV: "test"
+  JWT_SECRET: "ci-test-jwt-secret-key-delivery-hub-it3180-system-secure-32chars"
+  JWT_EXPIRES_IN: "1d"
 
 jobs:
   quality-gate:
