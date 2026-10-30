@@ -42,8 +42,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-delivery_hub}?schema=public
-      JWT_SECRET: ${JWT_SECRET:-kP9#vL2$xR8!mQ5&jW4*yT7@zB1%eN6^uA3~hK0+sD8_fC2=gE5<oZ9>tH4{qV7}wM}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-delivery_hub}?schema=public}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET bắt buộc phải được cấu hình trong .env (tối thiểu 32 ký tự)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
     networks:
       - delivery_hub_network
