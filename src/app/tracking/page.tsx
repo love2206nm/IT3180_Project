@@ -6,6 +6,8 @@ import { OrderStatusBadge } from '../../presentation/components/ui/badge';
 import { OrderTimeline } from '../../presentation/components/orders/order-timeline';
 import { isSuccess } from '../../application/interfaces';
 import type { PublicTrackingOutputDTO } from '../../application/dtos/tracking.dto';
+import { getCurrentUserSession } from '../../presentation/actions/session.helper';
+import { KiotHeader } from '../../presentation/components/layout/kiot-header';
 
 export interface TrackingPageProps {
   searchParams: Promise<{ code?: string }>;
@@ -19,6 +21,17 @@ export interface TrackingPageProps {
 export default async function TrackingPage({ searchParams }: TrackingPageProps) {
   const { code } = await searchParams;
   const trackingCodeQuery = code?.trim().toUpperCase();
+
+  // Kiểm tra phiên đăng nhập của người dùng
+  const session = await getCurrentUserSession();
+  const userProp = session
+    ? {
+        username: session.username,
+        role: session.role,
+        hubId: session.hubId ? Number(session.hubId) : null,
+        hubName: session.hubId ? `Bưu Cục #${session.hubId}` : 'Trung Tâm Toàn Quốc',
+      }
+    : undefined;
 
   let trackingResult: PublicTrackingOutputDTO | null = null;
   let errorMessage: string | null = null;
@@ -41,37 +54,56 @@ export default async function TrackingPage({ searchParams }: TrackingPageProps) 
 
   return (
     <div className="min-h-screen bg-[#F4F5F7] flex flex-col font-sans">
-      {/* Top Header Kiot Style */}
-      <header className="sticky top-0 z-30 flex h-12 w-full items-center justify-between bg-[#0066CC] px-4 text-white shadow-sm sm:px-8">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-100 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Trang chủ</span>
-          </Link>
-          <div className="h-4 w-px bg-blue-400" />
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-white text-[#0066CC] font-bold text-xs shadow-xs">
-              <Package className="h-3.5 w-3.5" />
+      {/* Header thông minh: Nếu đã đăng nhập thì giữ nguyên KiotHeader với menu tác nghiệp đầy đủ; nếu khách ngoài thì hiện thanh tra cứu công khai */}
+      {userProp ? (
+        <KiotHeader user={userProp} />
+      ) : (
+        <header className="sticky top-0 z-30 flex h-12 w-full items-center justify-between bg-[#0066CC] px-4 text-white shadow-sm sm:px-8">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-xs font-semibold text-blue-100 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Trang chủ</span>
+            </Link>
+            <div className="h-4 w-px bg-blue-400" />
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-white text-[#0066CC] font-bold text-xs shadow-xs">
+                <Package className="h-3.5 w-3.5" />
+              </div>
+              <span className="font-bold text-xs sm:text-sm uppercase tracking-wide">
+                Tra Cứu Vận Đơn Bưu Cục
+              </span>
             </div>
-            <span className="font-bold text-xs sm:text-sm uppercase tracking-wide">
-              Tra Cứu Vận Đơn Bưu Cục
-            </span>
           </div>
-        </div>
 
-        <Link
-          href="/login"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white transition-colors shadow-2xs"
-        >
-          Đăng Nhập Cán Bộ
-        </Link>
-      </header>
+          <Link
+            href="/login"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white transition-colors shadow-2xs"
+          >
+            Đăng Nhập Cán Bộ
+          </Link>
+        </header>
+      )}
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-4">
+        {/* Nút quay lại dành riêng cho Cán bộ khi đang ở trong phiên đăng nhập */}
+        {userProp && (
+          <div className="flex items-center justify-between">
+            <Link
+              href="/orders"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0066CC] hover:text-[#0052A3] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Quay lại Bảng Đơn Hàng</span>
+            </Link>
+            <span className="text-xs text-slate-500 font-mono">
+              Phiên làm việc: <strong>{userProp.username}</strong> ({userProp.hubName})
+            </span>
+          </div>
+        )}
         {/* Search Bar Section */}
         <div className="bg-white p-4 sm:p-5 rounded-md border border-slate-200 shadow-2xs space-y-3">
           <div className="text-center space-y-1">
