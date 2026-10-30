@@ -28,6 +28,7 @@ import {
 import { PAYMENT_BY, type PaymentBy } from '../../../../domain/constants/payment.constant';
 import { createOrderAction } from '../../../../presentation/actions/order.actions';
 import { isSuccess, isFailure } from '../../../../application/interfaces';
+import { KiotNumericInput } from '../../../../presentation/components/ui/kiot-numeric-input';
 
 export default function CreateOrderPOSPage() {
   const [senderName, setSenderName] = useState('Kho Trung Tâm Hà Nội');
@@ -342,53 +343,45 @@ export default function CreateOrderPOSPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Trọng lượng (gram)</label>
-                <input
-                  type="number"
-                  min="50"
-                  max="50000"
-                  value={weightGram}
-                  onChange={(e) => setWeightGram(Number(e.target.value))}
-                  className="w-full h-8 px-2.5 bg-slate-50 border border-slate-300 rounded text-slate-900 font-mono focus:bg-white focus:ring-1 focus:ring-[#0066CC]"
-                />
-              </div>
+              <KiotNumericInput
+                label="Trọng lượng (gram)"
+                value={weightGram}
+                onChange={setWeightGram}
+                min={50}
+                max={50000}
+                suffix="g"
+                defaultFallback={500}
+              />
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Dài (cm)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="200"
-                  value={lengthCm}
-                  onChange={(e) => setLengthCm(Number(e.target.value))}
-                  className="w-full h-8 px-2.5 bg-slate-50 border border-slate-300 rounded text-slate-900 font-mono focus:bg-white focus:ring-1 focus:ring-[#0066CC]"
-                />
-              </div>
+              <KiotNumericInput
+                label="Dài (cm)"
+                value={lengthCm}
+                onChange={setLengthCm}
+                min={1}
+                max={200}
+                suffix="cm"
+                defaultFallback={20}
+              />
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Rộng (cm)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="200"
-                  value={widthCm}
-                  onChange={(e) => setWidthCm(Number(e.target.value))}
-                  className="w-full h-8 px-2.5 bg-slate-50 border border-slate-300 rounded text-slate-900 font-mono focus:bg-white focus:ring-1 focus:ring-[#0066CC]"
-                />
-              </div>
+              <KiotNumericInput
+                label="Rộng (cm)"
+                value={widthCm}
+                onChange={setWidthCm}
+                min={1}
+                max={200}
+                suffix="cm"
+                defaultFallback={15}
+              />
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Cao (cm)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="200"
-                  value={heightCm}
-                  onChange={(e) => setHeightCm(Number(e.target.value))}
-                  className="w-full h-8 px-2.5 bg-slate-50 border border-slate-300 rounded text-slate-900 font-mono focus:bg-white focus:ring-1 focus:ring-[#0066CC]"
-                />
-              </div>
+              <KiotNumericInput
+                label="Cao (cm)"
+                value={heightCm}
+                onChange={setHeightCm}
+                min={1}
+                max={200}
+                suffix="cm"
+                defaultFallback={5}
+              />
             </div>
           </div>
         </div>
@@ -405,17 +398,16 @@ export default function CreateOrderPOSPage() {
             <label className="block text-xs font-bold text-slate-800 mb-1">
               Tiền Thu Hộ COD (VNĐ):
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                value={codAmount}
-                onChange={(e) => setCodAmount(Number(e.target.value))}
-                className="w-full h-10 px-3 bg-amber-50/50 border-2 border-amber-300 rounded text-slate-900 font-mono font-bold text-base focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-              <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-500">VNĐ</span>
-            </div>
+            <KiotNumericInput
+              value={codAmount}
+              onChange={setCodAmount}
+              min={0}
+              max={100000000}
+              suffix="VNĐ"
+              isCurrency={true}
+              defaultFallback={0}
+              className="h-10 text-base font-bold bg-amber-50/60 border-2 border-amber-300 focus:ring-2 focus:ring-amber-500"
+            />
           </div>
 
           {/* Người trả cước */}

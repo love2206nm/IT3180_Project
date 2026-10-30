@@ -27,15 +27,16 @@ const config: Config = {
           header: '#0066CC',
         },
         primary: {
-          DEFAULT: '#2563EB', // Tracking Blue
-          hover: '#1D4ED8',
-          light: '#DBEAFE',
+          DEFAULT: '#0066CC', // Kiot Royal Blue
+          hover: '#0052A3',
+          light: '#EFF6FF',
+          dark: '#004C99',
           foreground: '#FFFFFF',
         },
         accent: {
-          DEFAULT: '#EA580C', // Delivery Orange
-          hover: '#C2410C',
-          light: '#FFEDD5',
+          DEFAULT: '#16A34A', // Kiot Emerald Green
+          hover: '#15803D',
+          light: '#DCFCE7',
           foreground: '#FFFFFF',
         },
         surface: {
