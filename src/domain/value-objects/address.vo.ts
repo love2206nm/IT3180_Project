@@ -46,6 +46,13 @@ export class Address {
     this.province = props.province.trim();
   }
 
+  /**
+   * Factory method tiện ích tạo Address.
+   */
+  public static create(props: AddressProps): Address {
+    return new Address(props);
+  }
+
   public getStreet(): string {
     return this.street;
   }

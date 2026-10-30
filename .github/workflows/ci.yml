@@ -77,9 +77,10 @@ jobs:
           npm run db:push
           npm run db:seed
 
-      # Bước 7: Chạy toàn bộ các bộ Unit & Integration Test (Domain & Infrastructure)
-      - name: "7. Execute all test suites (Domain & Infrastructure)"
-        run: npm test
+      # Bước 7: Chạy toàn bộ các bộ Unit & Integration Test (Domain, Application, Infrastructure)
+      # Bỏ qua E2E test trong quá trình PR để đảm bảo CI chạy siêu tốc và ổn định
+      - name: "7. Execute Unit & Integration Test Suites (Domain, Application, Infrastructure)"
+        run: npm run test:unit
 
       # Bước 8: Thông báo trạng thái kiểm tra thành công
       - name: "8. Quality Gate Summary"

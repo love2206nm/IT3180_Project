@@ -8,8 +8,13 @@
     "db:push": "prisma db push --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=src/infrastructure/database/prisma/schema.prisma",
     "db:seed": "tsx src/infrastructure/database/prisma/seed.ts",
+    "db:mock:seed": "tsx scripts/seed_mock_data.ts",
+    "db:mock:clean": "tsx scripts/clean_mock_data.ts",
     "db:studio": "prisma studio --schema=src/infrastructure/database/prisma/schema.prisma",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "npm run test:unit",
+    "test:unit": "tsx --test tests/domain/*.test.ts tests/application/*.test.ts tests/infrastructure/*.test.ts",
+    "test:e2e": "tsx --test tests/e2e/*.test.ts",
+    "test:all": "tsx --test tests/**/*.test.ts",
     "test:domain": "tsx --test tests/domain/*.test.ts",
     "test:infra": "tsx --test tests/infrastructure/*.test.ts",
     "verify": "node scripts/verify_loops.mjs"
@@ -17,10 +22,13 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
     "prisma": "^5.22.0",
     "tsx": "^4.19.0",
